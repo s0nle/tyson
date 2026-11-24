@@ -114,8 +114,8 @@ async function planner(text: string, roomId: string, send: (t: string, m: { hand
     const run = await app("startRun", { body: { mode: "live", bandRoomId: roomId } });
     state.lastRunId = run.id;
     await send(
-      `@${AGENTS.builder.handle} Rep approved profile v${p.version}. Constraints: services [${p.capabilities.join("; ")}], regions [${p.regions.join(", ") || "unknown"}], quote prep ${p.quotePrepDays} days. Run ${run.id} — retrieve notices, write source-backed graph records, and send the shortlist to @${AGENTS.reviewer.handle}.`,
-      [mention("builder"), mention("reviewer")],
+      `@${AGENTS.builder.handle} Rep approved profile v${p.version}. Constraints: services [${p.capabilities.join("; ")}], regions [${p.regions.join(", ") || "unknown"}], quote prep ${p.quotePrepDays} days. Run ${run.id} — retrieve notices, write source-backed graph records, and send the shortlist to the Reviewer.`,
+      [mention("builder")],
     );
     return;
   }
@@ -152,6 +152,10 @@ async function builder(text: string, roomId: string, send: (t: string, m: { hand
       await send(`@${REP} Removed ${removed.join(", ")}. No actionable leads remain.`, [rep]);
       return;
     }
+    if (target.messages.some((m) => m.status === "draft" || m.status === "approved")) {
+      await send(`@${AGENTS.security.handle} Draft for ${target.contractorName} already exists (message ${target.messages.at(-1)?.id}). Please check it.`, [mention("security")]);
+      return;
+    }
     const draft = await app("draftMessage", { params: { leadId: target.id }, body: { channel: "email", variant: "A" } });
     state.watching.set(draft.id, roomId);
     await send(
@@ -160,10 +164,8 @@ async function builder(text: string, roomId: string, send: (t: string, m: { hand
     );
     return;
   }
-  if (!runId) {
-    await send(`@${AGENTS.planner.handle} I need a run id.`, [mention("planner")]);
-    return;
-  }
+  if (!/Rep approved/i.test(t)) return; // shortlist only on the planner's handoff
+  if (!runId) return;
   const run = await waitForRun(runId);
   const leads = await leadsOfRun(runId);
   const sources = run.steps.filter((s) => s.kind === "retrieve" || s.kind === "extract").map((s) => `• ${s.message.slice(0, 110)}${s.url ? `\n  ${s.url}` : ""}`);
@@ -181,6 +183,7 @@ async function builder(text: string, roomId: string, send: (t: string, m: { hand
 async function reviewer(text: string, roomId: string, send: (t: string, m: { handle: string }[]) => Promise<unknown>) {
   const runId = /Run ([0-9a-f-]{36})/i.exec(text)?.[1] ?? state.lastRunId;
   if (!runId) return;
+  await waitForRun(runId);
   const leads = await leadsOfRun(runId);
   const lines: string[] = [];
   const exclude: string[] = [];
@@ -270,7 +273,9 @@ async function run() {
         console.log(`[${role}] ← ${message.senderName ?? message.senderId}: ${message.content.slice(0, 120)}`);
         const fromHuman = String(message.senderType ?? "").toLowerCase() === "user";
         const handoff = /Run [0-9a-f-]{36}|message [0-9a-f-]{36}|remove|exclude/i.test(message.content);
-        if (role === "planner" ? !fromHuman : !handoff) return; // planner serves the rep; others act on real handoffs only
+        const sender = String(message.senderName ?? "").toLowerCase();
+        const expected: Record<Role, string> = { planner: "", builder: "planner|reviewer", reviewer: "builder", security: "builder" };
+        if (role === "planner" ? !fromHuman : !handoff || !new RegExp(expected[role]).test(sender)) return; // planner serves the rep; others act on real handoffs only
         try {
           await HANDLERS[role](message.content, roomId, send);
         } catch (e) {
