@@ -83,3 +83,19 @@ describe("modules 3–5 additions", () => {
     expect(detail.activity.some((x) => x.type === "lead_requalified" && x.actor.kind === "system")).toBe(true);
   });
 });
+
+describe("profile change clears leads that no longer match", () => {
+  it("a new business's run drops the old business's untouched leads", async () => {
+    const b = await startBackend();
+    const rep = b.as("switcher");
+    await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION } });
+    await rep("approveProfile");
+    await rep("startRun", { body: { mode: "seed" } });
+    expect((await rep("listLeads")).leads.length).toBe(2);
+    await rep("inferProfile", { body: { companyName: "Golden Gate Traffic Services", description: "We provide flagging crews, temporary signs, and lane closures for contractors in San Francisco and Alameda County." } });
+    await rep("approveProfile");
+    await rep("startRun", { body: { mode: "seed" } });
+    expect((await rep("listLeads")).leads).toHaveLength(0);
+    await b.close();
+  });
+});

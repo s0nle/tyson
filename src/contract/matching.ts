@@ -24,13 +24,53 @@ export const CONCEPTS: Concept[] = [
   { id: "metals", level: "trade", terms: ["metals", "grating", "handrail", "platform", "stairs"] },
   { id: "earthwork", level: "trade", terms: ["earthwork", "excavation", "trenching", "shoring"] },
   { id: "hauling", level: "trade", terms: ["trucking", "hauling", "demolition"] },
+  {
+    id: "traffic_control",
+    level: "equipment",
+    terms: ["traffic control", "flagging", "flagger", "flaggers", "lane closure", "construction area signs", "temporary signs", "temporary traffic", "k-rail", "k rail", "traffic management"],
+  },
+  {
+    id: "concrete_cutting",
+    level: "equipment",
+    terms: ["concrete cutting", "saw cutting", "sawcutting", "sawcut", "core drilling", "coring", "concrete coring", "cut and core"],
+  },
 ];
 
 const norm = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9&]+/g, " ").replace(/\s+/g, " ")} `;
 
+function termsFound(t: string, c: Concept): string[] {
+  return c.terms.filter((term) => t.includes(norm(term).trimEnd()) || t.includes(` ${term.trim()}s `));
+}
+
 export function conceptsIn(text: string): Concept[] {
   const t = norm(text);
-  return CONCEPTS.filter((c) => c.terms.some((term) => t.includes(norm(term).trimEnd()) || t.includes(` ${term.trim()}s `)));
+  const found = CONCEPTS.map((c) => ({ c, terms: termsFound(t, c) })).filter((x) => x.terms.length > 0);
+  // Drop a broad concept whose only evidence sits inside a more specific phrase ("concrete" inside "concrete cutting").
+  return found
+    .filter(
+      (x) =>
+        !x.terms.every((term) =>
+          found.some((o) => o !== x && o.terms.some((ot) => ot.length > term.length && ot.includes(term.trim()))),
+        ),
+    )
+    .map((x) => x.c);
+}
+
+const STOP = new Set([
+  "services", "service", "supply", "supplier", "suppliers", "install", "installation", "contractor", "contractors",
+  "provide", "provides", "including", "general", "project", "projects", "construction", "materials", "systems", "work",
+  "repair", "repairs", "other", "related", "plans", "quotes", "subcontractors", "small", "local", "after",
+]);
+
+/** Meaningful words for the keyword fallback (length ≥ 5, not boilerplate), lightly stemmed. */
+function keywords(text: string): Set<string> {
+  return new Set(
+    norm(text)
+      .trim()
+      .split(" ")
+      .filter((w) => w.length >= 5 && !STOP.has(w))
+      .map((w) => w.replace(/(ing|ers|er|es|s)$/, "")),
+  );
 }
 
 export interface ScopeMatchResult {
@@ -44,7 +84,14 @@ export function matchScopes(capabilities: string[], scopes: string[]): ScopeMatc
   const out: ScopeMatchResult[] = [];
   for (const service of capabilities) {
     const sc = conceptsIn(service);
-    if (sc.length === 0) continue;
+    if (sc.length === 0) {
+      // Service outside the concept list: match on shared meaningful keywords (trade-level evidence only).
+      const kw = keywords(service);
+      for (const scope of scopes) {
+        if ([...keywords(scope)].some((w) => kw.has(w))) out.push({ service, scope, strength: "trade_level" });
+      }
+      continue;
+    }
     for (const scope of scopes) {
       const shared = conceptsIn(scope).filter((c) => sc.some((s) => s.id === c.id));
       if (shared.length === 0) continue;

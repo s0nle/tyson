@@ -4,6 +4,7 @@ import {
   ContractError,
   formatInZone,
   isInstant,
+  conceptsIn,
   matchScopes,
   Project,
   Run,
@@ -17,7 +18,7 @@ import type { Deps } from "../deps";
 import { OWNER_SOURCE, SEED_NOTICES, type SeedSource } from "../seed";
 import { AGENTS, iso, logActivity, type Org } from "./base";
 import { clearRel, matchCandidates, upsertEdge, upsertNode } from "./graph";
-import { buildLead, citationFor, noticeNode, saveLead, supplierNode } from "./leads";
+import { allLeads, buildLead, citationFor, noticeNode, pruneLead, saveLead, supplierNode } from "./leads";
 import { requireApprovedProfile } from "./profile";
 import { NoticeRec, SourceRec, slug, stableId } from "./records";
 
@@ -148,6 +149,14 @@ async function executeRun(deps: Deps, org: Org, runId: string) {
         await logActivity(deps, deps.db, org, { actor: AGENTS.builder, type: "lead_excluded", leadId: lead.id, runId: run.id, summary: `${q.label}: ${q.reasons[0] ?? ""}` });
       }
       await logActivity(deps, deps.db, org, { actor: AGENTS.builder, type: "lead_matched", leadId: lead.id, runId: run.id, summary: `Matched ${lead.contractorName} on ${lead.scopes.length} scope(s); score ${lead.score.total}` });
+    }
+
+    // ---------- Builder: drop untouched leads from an earlier profile that no longer match ----------
+    for (const old of await allLeads(deps, org)) {
+      if (run.leadIds.includes(old.id)) continue;
+      if (await pruneLead(deps, org, old, `No longer matches profile v${profile.version}`)) {
+        await step(AGENTS.builder, "match", `Removed ${old.contractorName} (${old.projectNumber ?? old.projectTitle}): no longer matches your services.`);
+      }
     }
 
     // ---------- Security reviewer ----------
@@ -281,6 +290,20 @@ async function writeSupplierGraph(deps: Deps, org: Org, profile: SupplierProfile
   }
 }
 
+/** Long pages (weekly newsletters) can hold dozens of notices: send the model the window around the supplier's terms. */
+function focusText(content: string, capabilities: string[]): string {
+  if (content.length <= 12000) return content;
+  const lower = content.toLowerCase();
+  const terms = capabilities
+    .flatMap((c) => [c, ...conceptsIn(c).flatMap((x) => x.terms)])
+    .map((t) => t.toLowerCase().trim())
+    .filter((t) => t.length >= 4);
+  const hits = terms.map((t) => lower.indexOf(t)).filter((i) => i >= 0);
+  if (hits.length === 0) return content.slice(0, 12000);
+  const at = Math.min(...hits);
+  return content.slice(Math.max(0, at - 5000), at + 7000);
+}
+
 async function liveDiscovery(
   deps: Deps,
   org: Org,
@@ -289,15 +312,18 @@ async function liveDiscovery(
   step: (a: Actor, k: RunStep["kind"], m: string, u?: string | null) => Promise<void>,
 ): Promise<NoticeRec[]> {
   const region = profile.regions[0] ?? "California";
-  const queries = [
-    ...profile.capabilities.slice(0, 2).map((c) => `"seeking quotes" subcontractors suppliers ${c} water wastewater treatment ${region} 2026`),
-    `sub bid request "${profile.capabilities[0] ?? "electrical"}" treatment plant bid ${region} December 2026`,
+  // Built from the supplier's own services and region (no industry baked in). One query targets the
+  // sub-bid classifieds where contractors publish supplier/sub quote requests.
+  const caps = profile.capabilities.slice(0, 2);
+  const queries: { q: string; domains?: string[] }[] = [
+    ...caps.map((c) => ({ q: `"requesting quotes" OR "sub-bid request" subcontractors ${c} ${region} 2026` })),
+    { q: `${caps.join(" ")} sub bid request quotes ${region} 2026`, domains: ["sbeinc.com"] },
   ];
   const seen = new Set(SEED_NOTICES.map((s) => s.url));
   const pages: { url: string; title: string; content: string }[] = [];
   for (const q of queries) {
-    await step(AGENTS.builder, "search", `Search: ${q}`);
-    const results = await deps.search.search(q, 5).catch((e) => {
+    await step(AGENTS.builder, "search", `Search: ${q.q}${q.domains ? ` (sources: ${q.domains.join(", ")})` : ""}`);
+    const results = await deps.search.search(q.q, 5, { domains: q.domains }).catch((e) => {
       void step(AGENTS.builder, "error", `Search failed: ${String(e).slice(0, 160)}`);
       return [];
     });
@@ -310,7 +336,9 @@ async function liveDiscovery(
   const out: NoticeRec[] = [];
   const extracted = await Promise.all(
     pages.map(async (p) => {
-      const ex = await deps.ai.extractNotice({ url: p.url, title: p.title, text: p.content, retrievedAt: iso(deps) }).catch(() => null);
+      const ex = await deps.ai
+        .extractNotice({ url: p.url, title: p.title, text: focusText(p.content, profile.capabilities), retrievedAt: iso(deps), capabilities: profile.capabilities })
+        .catch(() => null);
       return { p, ex };
     }),
   );
@@ -348,7 +376,7 @@ async function competitorDiscovery(
   profile: SupplierProfile,
   step: (a: Actor, k: RunStep["kind"], m: string, u?: string | null) => Promise<void>,
 ) {
-  const q = `${profile.capabilities[0] ?? "motor control center retrofit"} services company ${profile.regions[0] ?? "Northern California"} water wastewater`;
+  const q = `${profile.capabilities[0] ?? "specialty contractor"} company ${profile.regions[0] ?? "California"}`;
   await step(AGENTS.builder, "search", `Competitor scan: ${q}`);
   const results = await deps.search.search(q, 6);
   const comps = await deps.ai.summarizeCompetitors({ capabilities: profile.capabilities, pages: results.map((r) => ({ url: r.url, title: r.title, text: r.content })) });

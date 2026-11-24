@@ -530,7 +530,12 @@ export async function refreshLeads(deps: Deps, org: Org, asOfInput?: string) {
     const notice = await getDoc(deps.db, org.id, "notice", lead.noticeId, NoticeRec);
     if (!notice) continue;
     const next = await buildLead(deps, org, profile, notice, asOf);
-    if (!next) continue;
+    if (!next) {
+      if (await pruneLead(deps, org, lead, "No longer matches the approved supplier profile")) {
+        changed.push({ leadId: lead.id, contractorName: lead.contractorName, from: lead.qualification.status, to: "disqualified", reason: "No longer matches your services" });
+      }
+      continue;
+    }
     const from = lead.qualification.status;
     const to = next.qualification.status;
     const noticeChanged = next.notice.version !== lead.notice.version;
@@ -546,6 +551,22 @@ export async function refreshLeads(deps: Deps, org: Org, asOfInput?: string) {
   }
   await putDoc(deps.db, org.id, "meta", org.id, { lastRefresh: iso(deps) }, iso(deps));
   return { asOf, checked: leads.length, changed, staleMessages };
+}
+
+/**
+ * Remove a lead that no longer matches the current profile — but only if nobody has acted on it yet
+ * (still "matched", nothing sent). Engaged leads are kept so outreach history is never lost.
+ */
+export async function pruneLead(deps: Deps, org: Org, lead: LeadRec, reason: string): Promise<boolean> {
+  const messages = (await listDocs(deps.db, org.id, "message", Message)).filter((m) => m.leadId === lead.id);
+  if (lead.stage !== "matched" || messages.some((m) => m.status === "sent")) return false;
+  await deps.db.tx(async (db) => {
+    await db.query("delete from docs where org_id = $1 and kind = 'lead' and id = $2", [org.id, lead.id]);
+    for (const m of messages) await db.query("delete from docs where org_id = $1 and kind = 'message' and id = $2", [org.id, m.id]);
+    await db.query("delete from edges where org_id = $1 and src = $2 and rel = 'MATCHED_TO'", [org.id, `company:${lead.contractor.id}`]);
+  });
+  await logActivity(deps, deps.db, org, { actor: SYSTEM, type: "lead_requalified", leadId: null, summary: `Removed ${lead.contractorName} (${lead.projectNumber ?? lead.projectTitle}): ${reason}` });
+  return true;
 }
 
 /** Lazy scheduling: ordinary reads trigger a refresh at most once a minute (cron is only a backstop). */

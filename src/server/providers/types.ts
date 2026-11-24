@@ -38,7 +38,7 @@ export interface CompetitorSummary {
 export interface AiProvider {
   kind: "live" | "fake";
   inferIcp(input: { companyName: string; description: string }): Promise<IcpInference>;
-  extractNotice(input: { url: string; title: string; text: string; retrievedAt: string }): Promise<NoticeExtraction>;
+  extractNotice(input: { url: string; title: string; text: string; retrievedAt: string; capabilities?: string[] }): Promise<NoticeExtraction>;
   draft(ctx: DraftContext): Promise<DraftOutput>;
   summarizeCompetitors(input: { capabilities: string[]; pages: { url: string; title: string; text: string }[] }): Promise<CompetitorSummary[]>;
 }
@@ -50,7 +50,7 @@ export interface SearchResult {
 }
 export interface SearchProvider {
   kind: "live" | "fake";
-  search(query: string, maxResults?: number): Promise<SearchResult[]>;
+  search(query: string, maxResults?: number, opts?: { domains?: string[] }): Promise<SearchResult[]>;
 }
 
 export type VerifyStatus = "valid" | "accept_all" | "unknown" | "invalid";

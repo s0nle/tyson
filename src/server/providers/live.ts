@@ -59,7 +59,7 @@ Never invent certifications the supplier did not state (leave certifications emp
 Suggest 2-3 adjacent segments with concrete evidence-based reasoning. quotePrepDays: realistic days to prepare a quote (default 3).`,
         `Company: ${companyName || "(not given)"}\nDescription: ${description}`,
       ),
-    extractNotice: ({ url, title, text, retrievedAt }) =>
+    extractNotice: ({ url, title, text, retrievedAt, capabilities }) =>
       structured(
         "notice_extraction",
         NoticeExtraction,
@@ -69,6 +69,7 @@ Keep the OWNER's bid opening separate from the contractor's supplier deadline. F
 rule=hours_before_bid with hoursBeforeBid=N. Dates as ISO-8601 with offset in the project's local zone (Pacific = -08:00 in winter).
 scopes = requested trades/equipment verbatim. scopeExcerpt must be copied verbatim from the text.
 A named person and a shared mailbox (bids@, estimating@) are separate contacts. Do not invent emails.
+If the page holds several notices (e.g. a weekly newsletter), extract the ONE that requests what this supplier sells: ${(capabilities ?? []).join("; ") || "(any)"}; prefer the one with the latest dates.
 Retrieved at ${retrievedAt}.`,
         `URL: ${url}\nTitle: ${title}\n\n${text.slice(0, 12000)}`,
       ),
@@ -104,11 +105,11 @@ category: direct (same service, same region), indirect (overlapping service), al
 export function tavilySearch(apiKey: string): SearchProvider {
   return {
     kind: "live",
-    async search(query, maxResults = 5) {
+    async search(query, maxResults = 5, opts = {}) {
       const res = await fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ query, max_results: maxResults, search_depth: "advanced", include_raw_content: true }),
+        body: JSON.stringify({ query, max_results: maxResults, search_depth: "advanced", include_raw_content: true, ...(opts.domains?.length ? { include_domains: opts.domains } : {}) }),
       });
       if (!res.ok) throw new Error(`Tavily ${res.status}: ${await res.text()}`);
       const json = (await res.json()) as { results?: { url: string; title: string; content: string; raw_content?: string | null }[] };

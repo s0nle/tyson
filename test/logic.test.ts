@@ -117,3 +117,20 @@ describe("approval hash", () => {
     expect(approvalHash({ ...base, revision: 2 })).not.toBe(h);
   });
 });
+
+describe("matching beyond water plants", () => {
+  it("traffic control supplier matches flagging / construction area signs scopes", () => {
+    const caps = ["Flagging crews", "Temporary signs and lane closures"];
+    const m = matchScopes(caps, ["Construction Area Signs", "Traffic Control", "Cold Plane", "Asphalt Paving"]);
+    expect([...new Set(m.map((x) => x.scope))].sort()).toEqual(["Construction Area Signs", "Traffic Control"]);
+  });
+  it("concrete cutting supplier matches saw cutting / coring but not concrete materials", () => {
+    const caps = ["Concrete cutting and coring"];
+    const m = matchScopes(caps, ["Saw Cutting", "Core Drilling", "Concrete Materials", "Rebar"]);
+    expect(m.map((x) => x.scope).sort()).toEqual(["Core Drilling", "Saw Cutting"]);
+  });
+  it("falls back to shared keywords for services outside the concept list", () => {
+    expect(matchScopes(["Asbestos survey services"], ["Hazardous materials asbestos survey"])).toHaveLength(1);
+    expect(matchScopes(["Landscape irrigation"], ["Traffic Control"])).toHaveLength(0);
+  });
+});
