@@ -64,7 +64,7 @@ for review before discovery. Each browser workspace starts with 6 demo credits. 
 `?as=<name>`; normal onboarding creates a separate workspace automatically.
 
 ### Demo script (2–3 min)
-1. On the welcome screen, enter your business details or choose *Try the Oakland example*, then *Create my workspace*.
+1. On the welcome screen, enter your company name and describe what your company does, then *Create my workspace*.
 2. Hover or click **Your business** on the left. Buyer fields collapse to a title, confidence percentage, and colored bar.
    Expand a field to keep, edit, or dismiss it, then *Approve & use for search*. A yellow caution remains until approval.
 3. *Find opportunities*. The progress bar shows the current agent and a short status. Results appear above completed progress.

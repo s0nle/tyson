@@ -115,22 +115,7 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 export function Brand() {
   return (
     <div className="brand">
-      <span className="brand-mark">
-        <svg
-          width="25"
-          height="25"
-          viewBox="0 0 28 28"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 22V11l9-6 9 6v11h-6v-7h-6v7H5Z"
-            stroke="currentColor"
-            strokeWidth="2"
-          />
-          <path d="m5 11 9 6 9-6" stroke="currentColor" strokeWidth="2" />
-        </svg>
-      </span>
+      <img className="brand-mark" src="/tyson-radar.svg" alt="" width="40" height="40" />
       <span>
         Tyson<span className="brand-sub">Your personal sales agent</span>
       </span>

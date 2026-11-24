@@ -57,34 +57,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (!user || onboarding)
     return (
       <main className="welcome">
-        <div className="welcome-story">
-          <Brand />
-          <div>
-            <p className="eyebrow">BUILT FOR SUPPLIERS</p>
-            <h1>
-              Your next customer
-              <br />
-              is looking for
-              <br />
-              <span>what you do.</span>
-            </h1>
-            <p>
-              Tell us about your business.
-              <br />
-              We’ll find the right opportunities.
-            </p>
-          </div>
-          <span className="welcome-foot">
-            Real buying signals. Conversations that matter.
-          </span>
-        </div>
         <div className="welcome-form">
-          <form onSubmit={start}>
-            <p className="eyebrow">LET’S GET TO KNOW YOUR BUSINESS</p>
-            <h2>What do you do?</h2>
-            <p>A little context helps us find your best-fit customers.</p>
+          <Brand />
+          <form onSubmit={start} aria-label="Business information">
             <label className="form-label" htmlFor="onboarding-company">
-              Company name
+              Company Name
             </label>
             <input
               id="onboarding-company"
@@ -98,7 +75,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               disabled={busy}
             />
             <label className="form-label mt-5" htmlFor="onboarding-description">
-              What does your company do?
+              What Does Your Company Do?
             </label>
             <textarea
               id="onboarding-description"
@@ -118,7 +95,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 busy || !company.trim() || description.trim().length < 10
               }
             >
-              <Icon name="spark" size={17} />
+              <Icon name="chevron" size={16} />
               {busy ? "Building your buyer profile…" : "Create my workspace"}
             </button>
             {busy && (
@@ -131,25 +108,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 {error} Your business details are saved. Please try again.
               </p>
             )}
-            <div className="welcome-note">
-              <Icon name="credit" size={17} />
-              <span>
-                6 demo credits included. Review your profile before searching.
-              </span>
-            </div>
-            <button
-              type="button"
-              className="text-link !w-auto !mt-5"
-              disabled={busy}
-              onClick={() => {
-                setCompany("Bay Controls Co");
-                setDescription(
-                  "We retrofit motor control centers and install instrumentation at Northern California water plants. We sell to contractors currently collecting supplier quotes.",
-                );
-              }}
-            >
-              Try the Oakland example
-            </button>
           </form>
         </div>
       </main>

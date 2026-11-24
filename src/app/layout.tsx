@@ -6,6 +6,7 @@ import "./globals.css";
 const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo" });
 
 export const metadata: Metadata = {
+  icons: { icon: "/tyson-radar.svg" },
   title: "Tyson — your personal sales agent",
   description: "Find contractors collecting supplier quotes right now, with the deadline that applies to you.",
 };
