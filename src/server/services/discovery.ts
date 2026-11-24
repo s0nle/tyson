@@ -336,16 +336,26 @@ async function liveDiscovery(
   await step(AGENTS.planner, "plan", `Search plan for ${profile.companyName} (${region}): ${plan.map((p) => p.why).join("; ")}. @builder run these.`);
   const seen = new Set(SEED_NOTICES.map((s) => s.url));
   const pages: { url: string; title: string; content: string }[] = [];
-  for (const q of queries) {
-    await step(AGENTS.builder, "search", `Search: ${q.q}${q.domains ? ` (sources: ${q.domains.join(", ")})` : ""}`);
-    const results = await deps.search.search(q.q, 5, { domains: q.domains }).catch((e) => {
-      void step(AGENTS.builder, "error", `Search failed: ${String(e).slice(0, 160)}`);
-      return [];
-    });
+  // Classifieds first (that's where contractors print "requesting quotes for: …"), then the open web.
+  // Each search gets a fair share of the page budget so one noisy query can't crowd out the rest.
+  queries.sort((a, b) => Number(!!b.domains) - Number(!!a.domains));
+  const perQuery = Math.max(1, Math.ceil(deps.config.maxLivePages / Math.max(1, queries.length)));
+  const batches = await Promise.all(
+    queries.map(async (q) => {
+      await step(AGENTS.builder, "search", `Search: ${q.q}${q.domains ? ` (sources: ${q.domains.join(", ")})` : ""}`);
+      return deps.search.search(q.q, 5, { domains: q.domains }).catch((e) => {
+        void step(AGENTS.builder, "error", `Search failed: ${String(e).slice(0, 160)}`);
+        return [];
+      });
+    }),
+  );
+  for (const results of batches) {
+    let taken = 0;
     for (const r of results) {
-      if (seen.has(r.url) || pages.length >= deps.config.maxLivePages) continue;
+      if (seen.has(r.url) || taken >= perQuery || pages.length >= deps.config.maxLivePages + 2) continue;
       seen.add(r.url);
       pages.push(r);
+      taken++;
     }
   }
   const out: NoticeRec[] = [];
