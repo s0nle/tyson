@@ -355,6 +355,15 @@ export function Workspace() {
             >
               Edit business
             </button>
+            <button
+              className="btn btn-small topbar-exit"
+              type="button"
+              onClick={switchBusiness}
+              title="Sign out and switch business"
+            >
+              <Icon name="logout" size={15} />
+              Exit
+            </button>
           </div>
         </header>
         {view === "analytics" ? (

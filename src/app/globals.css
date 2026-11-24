@@ -2176,3 +2176,8 @@ table.datagrid td {
   .funnel-row { grid-template-columns: 96px 1fr 28px; }
   .audit-list li { grid-template-columns: 1fr; }
 }
+
+.topbar-exit {
+  margin-left: 6px;
+  white-space: nowrap;
+}
