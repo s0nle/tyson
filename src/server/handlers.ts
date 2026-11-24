@@ -78,6 +78,10 @@ export const handlers: Handlers = {
   async draftSequence({ deps, org, params, body }) {
     return draftSequence(deps, await org(), p(params, "leadId"), body);
   },
+  async geoSearch({ deps, org, query }) {
+    await org();
+    return { results: (await deps.geo.search(query.q).catch(() => [])).slice(0, 5) };
+  },
   async getQueue({ deps, org }) {
     return queue(deps, await org());
   },

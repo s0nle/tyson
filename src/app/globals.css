@@ -1094,7 +1094,7 @@ select.field {
   position: absolute;
   right: 0;
   top: 30px;
-  width: 310px;
+  width: min(420px, calc(100vw - 32px));
   padding: 22px;
   border: 1px solid var(--color-rule);
   border-radius: 10px;
@@ -2187,4 +2187,56 @@ table.datagrid td {
   gap: 8px;
   flex-wrap: wrap;
   margin-left: auto;
+}
+
+/* ---------- Service area map ---------- */
+.service-area {
+  display: grid;
+  gap: 10px;
+}
+.area-search {
+  display: flex;
+  gap: 8px;
+}
+.area-results {
+  border: 1px solid var(--color-rule);
+  border-radius: 8px;
+  max-height: 150px;
+  overflow: auto;
+}
+.area-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+}
+.area-results button:hover {
+  background: var(--color-spec-2, #eef3ff);
+}
+.area-map {
+  height: 240px;
+  border-radius: 10px;
+  border: 1px solid var(--color-rule);
+  overflow: hidden;
+  z-index: 0;
+}
+.area-radius {
+  display: grid;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--color-ink-2);
+}
+.area-radius input[type="range"] {
+  accent-color: var(--color-spec);
+  width: 100%;
+}
+.area-pin span {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-spec);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 6px #0004;
 }

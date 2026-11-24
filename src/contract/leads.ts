@@ -155,6 +155,8 @@ export const LeadSummary = z.object({
   nextAction: z.string(),
   segment: z.string(),
   companyTier: z.enum(["enterprise", "mid_market", "small"]),
+  /** Miles from the supplier's service-area center to the project, when both are known. */
+  distanceMiles: z.number().nullable().default(null),
   /** seed = curated source snapshot; live = found by a live search run. */
   origin: z.enum(["seed", "live"]),
   updatedAt: Timestamp,
@@ -294,6 +296,11 @@ export const AgentNoteRequest = z.object({
   bandRoomId: z.string().max(100).optional(),
 });
 export type AgentNoteRequest = z.input<typeof AgentNoteRequest>;
+
+export const GeoSearchQuery = z.object({ q: z.string().min(2).max(120) });
+export const GeoSearchResponse = z.object({
+  results: z.array(z.object({ label: z.string(), lat: z.number(), lng: z.number() })),
+});
 
 export const RefreshRequest = z.object({ asOf: Timestamp.optional() });
 export type RefreshRequest = z.input<typeof RefreshRequest>;

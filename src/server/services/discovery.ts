@@ -315,7 +315,9 @@ async function liveDiscovery(
   owner: SourceRec,
   step: (a: Actor, k: RunStep["kind"], m: string, u?: string | null) => Promise<void>,
 ): Promise<NoticeRec[]> {
-  const region = profile.regions[0] ?? "California";
+  const region = profile.serviceArea
+    ? `within ${profile.serviceArea.radiusMiles} miles of ${profile.serviceArea.label}`
+    : (profile.regions[0] ?? "California");
   // Built from the supplier's own services and region (no industry baked in). One query targets the
   // sub-bid classifieds where contractors publish supplier/sub quote requests.
   // Planner (OpenAI) writes the searches from the approved profile; deterministic fallback if the model call fails.
@@ -324,7 +326,7 @@ async function liveDiscovery(
     companyName: profile.companyName,
     description: profile.description,
     capabilities: profile.capabilities,
-    regions: profile.regions,
+    regions: profile.serviceArea ? [region, ...profile.regions] : profile.regions,
     buyerRoles: icp("buyer_roles"),
     signals: icp("buying_signals"),
   };

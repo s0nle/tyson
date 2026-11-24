@@ -27,7 +27,7 @@ export const CONCEPTS: Concept[] = [
   {
     id: "traffic_control",
     level: "equipment",
-    terms: ["traffic control", "flagging", "flagger", "flaggers", "lane closure", "construction area signs", "temporary signs", "temporary traffic", "k-rail", "k rail", "traffic management"],
+    terms: ["traffic control", "signage", "barricade", "flagging", "flagger", "flaggers", "lane closure", "construction area signs", "temporary signs", "temporary traffic", "k-rail", "k rail", "traffic management"],
   },
   {
     id: "concrete_cutting",
@@ -60,6 +60,7 @@ const STOP = new Set([
   "services", "service", "supply", "supplier", "suppliers", "install", "installation", "contractor", "contractors",
   "provide", "provides", "including", "general", "project", "projects", "construction", "materials", "systems", "work",
   "repair", "repairs", "other", "related", "plans", "quotes", "subcontractors", "small", "local", "after",
+  "temporary", "permanent", "crews", "emergency", "hours", "night", "commercial", "industrial", "public", "private",
 ]);
 
 /** Meaningful words for the keyword fallback (length ≥ 5, not boilerplate), lightly stemmed. */
@@ -88,7 +89,10 @@ export function matchScopes(capabilities: string[], scopes: string[]): ScopeMatc
       // Service outside the concept list: match on shared meaningful keywords (trade-level evidence only).
       const kw = keywords(service);
       for (const scope of scopes) {
-        if ([...keywords(scope)].some((w) => kw.has(w))) out.push({ service, scope, strength: "trade_level" });
+        // one shared word is enough only when the scope is a single meaningful word; otherwise require two
+        const sk = [...keywords(scope)];
+        const shared = sk.filter((w) => kw.has(w)).length;
+        if (shared >= 2 || (shared === 1 && sk.length === 1)) out.push({ service, scope, strength: "trade_level" });
       }
       continue;
     }

@@ -66,6 +66,7 @@ export async function updateProfile(deps: Deps, org: Org, req: UpdateProfileRequ
     });
   }
   const changed = JSON.stringify(next) !== JSON.stringify(p);
+  if (req.serviceArea !== undefined) next.serviceArea = req.serviceArea;
   const out = SupplierProfile.parse({
     ...next,
     status: changed ? "draft" : p.status,

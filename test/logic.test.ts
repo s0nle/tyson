@@ -134,3 +134,10 @@ describe("matching beyond water plants", () => {
     expect(matchScopes(["Landscape irrigation"], ["Traffic Control"])).toHaveLength(0);
   });
 });
+
+describe("keyword fallback is not fooled by one generic word", () => {
+  it("'Temporary signage' does not match 'temporary bypass pumping'", () => {
+    expect(matchScopes(["Temporary signage"], ["temporary bypass pumping"])).toHaveLength(0);
+    expect(matchScopes(["Temporary signage and barricades"], ["Traffic Control", "temporary bypass pumping"]).map((m) => m.scope)).toEqual(["Traffic Control"]);
+  });
+});

@@ -58,6 +58,12 @@ export function OpportunityCard({
             <span>
               {lead.origin === "seed" ? "Curated example" : "Web discovery"}
             </span>
+            {lead.distanceMiles !== null && (
+              <>
+                <span>·</span>
+                <span>{lead.distanceMiles} mi away</span>
+              </>
+            )}
           </div>
         </div>
         <div className="match-fit">

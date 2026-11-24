@@ -6,6 +6,8 @@ import {
   Analytics,
   AnalyticsQuery,
   AgentNoteRequest,
+  GeoSearchQuery,
+  GeoSearchResponse,
   LeadSummary,
   RefreshRequest,
   RefreshResponse,
@@ -86,6 +88,7 @@ export const endpoints = {
   refreshLeads: endpoint({ method: "POST", path: "/api/v1/leads/refresh", body: RefreshRequest, response: RefreshResponse }),
   enrichCompany: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/enrich-company", body: z.object({}).default({}), response: LeadDetail }),
   draftSequence: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/sequence", body: SequenceRequest, response: SequenceResponse }),
+  geoSearch: endpoint({ method: "GET", path: "/api/v1/geo/search", query: GeoSearchQuery, response: GeoSearchResponse }),
   getQueue: endpoint({
     method: "GET",
     path: "/api/v1/queue",

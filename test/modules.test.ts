@@ -99,3 +99,29 @@ describe("profile change clears leads that no longer match", () => {
     await b.close();
   });
 });
+
+describe("service area (map center + radius)", () => {
+  it("keeps projects inside the radius and rules out the rest with the distance", async () => {
+    const b = await startBackend();
+    const rep = b.as("radius");
+    await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION } });
+    await rep("approveProfile");
+    const found = await rep("geoSearch", { query: { q: "Oakland" } });
+    const oak = found.results[0];
+    if (!oak) throw new Error("no geocode");
+    await rep("updateProfile", { body: { serviceArea: { label: oak.label, lat: oak.lat, lng: oak.lng, radiusMiles: 25 } } });
+    expect((await rep("getProfile")).profile?.status).toBe("approved");
+    await rep("startRun", { body: { mode: "seed" } });
+    const ww = (await rep("listLeads")).leads.find((l) => l.contractorName === "Western Water");
+    expect(ww?.qualification.status).toBe("actionable");
+    expect(ww?.distanceMiles).toBe(0);
+
+    await rep("updateProfile", { body: { serviceArea: { label: "Fresno, CA", lat: 36.7378, lng: -119.7871, radiusMiles: 25 } } });
+    const r = await rep("refreshLeads", { body: {} });
+    expect(r.changed.some((c) => c.contractorName === "Western Water" && c.to === "disqualified")).toBe(true);
+    const after = (await rep("listLeads")).leads.find((l) => l.contractorName === "Western Water");
+    expect(after?.qualification.label).toBe("Outside service area");
+    expect(after?.qualification.reasons[0]).toMatch(/Oakland, CA is 1\d\d mi from Fresno, CA \(your limit: 25 mi\)/);
+    await b.close();
+  });
+});

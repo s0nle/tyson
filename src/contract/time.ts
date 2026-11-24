@@ -56,6 +56,16 @@ export function shortDate(input: Date | string, tz = DEFAULT_TZ): string {
   return new Intl.DateTimeFormat("en-US", { timeZone: tz, month: "short", day: "numeric" }).format(date);
 }
 
+/** Great-circle distance in miles. */
+export function milesBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 3958.8;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
 export function hoursBetween(from: Date | string, to: Date | string): number {
   return (new Date(to).getTime() - new Date(from).getTime()) / 3_600_000;
 }

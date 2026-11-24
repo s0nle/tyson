@@ -1,7 +1,7 @@
 import type { Db } from "./db";
-import { fakeAi, fakeBilling, fakeSearch, makeFakeEnrich, makeFakeMail } from "./providers/fakes";
-import { flexpriceBilling, hunterEnrich, openAiProvider, resendMail, tavilySearch } from "./providers/live";
-import type { AiProvider, BillingProvider, EnrichProvider, MailProvider, SearchProvider } from "./providers/types";
+import { fakeAi, fakeBilling, fakeGeo, fakeSearch, makeFakeEnrich, makeFakeMail } from "./providers/fakes";
+import { flexpriceBilling, hunterEnrich, nominatimGeo, openAiProvider, resendMail, tavilySearch } from "./providers/live";
+import type { AiProvider, BillingProvider, GeoProvider, EnrichProvider, MailProvider, SearchProvider } from "./providers/types";
 
 export interface Config {
   /** Team-controlled inbox that receives every demo send. Never a real prospect. */
@@ -21,6 +21,7 @@ export interface Deps {
   enrich: EnrichProvider;
   mail: MailProvider;
   billing: BillingProvider;
+  geo: GeoProvider;
   /** Slow work after responding. Next: after(); tests: awaited (deterministic). */
   afterResponse: (task: () => Promise<void>) => void | Promise<void>;
   config: Config;
@@ -52,7 +53,8 @@ export function pickProviders(env: NodeJS.ProcessEnv = process.env) {
     env.BILLING !== "fake" && env.FLEXPRICE_API_KEY
       ? flexpriceBilling(env.FLEXPRICE_API_KEY, env.FLEXPRICE_BASE_URL || "https://us.api.flexprice.io/v1")
       : (warn("Flexprice"), fakeBilling);
-  return { ai, search, enrich, mail, billing };
+  const geo = env.GEO === "fake" ? fakeGeo : nominatimGeo();
+  return { ai, search, enrich, mail, billing, geo };
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {

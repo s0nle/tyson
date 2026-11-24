@@ -49,6 +49,15 @@ export type AdjacentSegment = z.infer<typeof AdjacentSegment>;
  *   draft    → being edited; discovery uses it only after approval
  *   approved → frozen version used by discovery runs; any edit bumps `version` and returns to draft
  */
+/** Where the supplier works: a center point and a radius (miles). Leads outside it are not pursued. */
+export const ServiceArea = z.object({
+  label: z.string().min(1).max(160),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  radiusMiles: z.int().min(1).max(500),
+});
+export type ServiceArea = z.infer<typeof ServiceArea>;
+
 export const SupplierProfile = z.object({
   id: Id,
   orgId: Id,
@@ -65,6 +74,7 @@ export const SupplierProfile = z.object({
   quotePrepDays: z.int().min(1).max(60),
   icp: z.array(IcpField),
   adjacentSegments: z.array(AdjacentSegment),
+  serviceArea: ServiceArea.nullable().default(null),
   status: z.enum(["draft", "approved"]),
   approvedAt: Timestamp.nullable(),
   version: z.int().min(1),
@@ -93,6 +103,8 @@ export const UpdateProfileRequest = z.object({
     .array(z.object({ key: IcpFieldKey, status: DecisionStatus, values: z.array(z.string()).optional() }))
     .optional(),
   segments: z.array(z.object({ id: Id, status: DecisionStatus })).optional(),
+  /** Map center + radius. Changing it does not require re-approval. null clears it. */
+  serviceArea: ServiceArea.nullable().optional(),
 });
 export type UpdateProfileRequest = z.input<typeof UpdateProfileRequest>;
 

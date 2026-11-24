@@ -12,6 +12,7 @@ import {
   Message,
   type MoveLeadRequest,
   matchScopes,
+  milesBetween,
   bestStrength,
   type Pipeline,
   Project,
@@ -193,7 +194,23 @@ export async function buildLead(
         ? true
         : null;
 
-  const q = qualify({ asOf, deadlines, requirements, regionMatch, conflictingCurrentNotices: false, tz: project.timezone });
+  // Service area (map center + radius) overrides the coarse region text check.
+  let distanceMiles: number | null = null;
+  let areaMatch = regionMatch;
+  if (profile.serviceArea) {
+    const pt = await geocode(deps, project.location);
+    if (pt) {
+      distanceMiles = Math.round(milesBetween(profile.serviceArea, pt));
+      areaMatch = distanceMiles <= profile.serviceArea.radiusMiles;
+    }
+  }
+  const q = qualify({ asOf, deadlines, requirements, regionMatch: areaMatch, conflictingCurrentNotices: false, tz: project.timezone });
+  if (q.status === "disqualified" && areaMatch === false && profile.serviceArea && distanceMiles !== null) {
+    q.label = "Outside service area";
+    q.reasons = [
+      `${project.location} is ${distanceMiles} mi from ${profile.serviceArea.label} (your limit: ${profile.serviceArea.radiusMiles} mi)`,
+    ];
+  }
   const real = contacts.filter((c) => !c.isTestContact);
   const level: ContactLevel = real.some((c) => c.kind === "person" && c.verification.status === "valid")
     ? "person_verified"
@@ -260,6 +277,7 @@ export async function buildLead(
     responseMethod: ex.responseMethod,
     graphPath,
     noticeId: notice.id,
+    distanceMiles,
   });
 }
 
@@ -281,8 +299,24 @@ export function toSummary(l: LeadRec): LeadSummary {
     segment: l.segment,
     companyTier: l.companyTier,
     origin: l.origin,
+    distanceMiles: l.distanceMiles,
     updatedAt: l.updatedAt,
   };
+}
+
+/** Geocode with a global cache (docs kind "geo"); null when the place can't be found. */
+const GEO_ORG = "00000000-0000-4000-8000-000000000000";
+export async function geocode(deps: Deps, place: string): Promise<{ lat: number; lng: number } | null> {
+  const key = stableId("geo", place.trim().toLowerCase());
+  const rows = await deps.db.query<{ data: { lat: number; lng: number } | null }>(
+    "select data from docs where org_id = $1 and kind = 'geo' and id = $2",
+    [GEO_ORG, key],
+  );
+  if (rows[0]) return rows[0].data?.lat !== undefined ? rows[0].data : null;
+  const hit = (await deps.geo.search(place).catch(() => []))[0] ?? null;
+  const value = hit ? { lat: hit.lat, lng: hit.lng } : { miss: true };
+  await putDoc(deps.db, GEO_ORG, "geo", key, value, iso(deps));
+  return hit ? { lat: hit.lat, lng: hit.lng } : null;
 }
 
 export async function allLeads(deps: Deps, org: Org) {

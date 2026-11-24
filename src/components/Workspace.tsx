@@ -10,6 +10,12 @@ import { DiscoveryProgress } from "./Progress";
 import { OpportunityCard } from "./OpportunityCard";
 import { AnalyticsPanel } from "./AnalyticsPanel";
 import { QueuePanel } from "./QueuePanel";
+import dynamic from "next/dynamic";
+
+const ServiceAreaMap = dynamic(() => import("./ServiceAreaMap").then((m) => m.ServiceAreaMap), {
+  ssr: false,
+  loading: () => <p className="field-help">Loading map…</p>,
+});
 
 export function Workspace() {
   const profile = usePoll(() => api("getProfile"), [], 0);
@@ -33,6 +39,7 @@ export function Workspace() {
   const queue = usePoll(() => api("getQueue"), [], 4000);
   const queueCount = queue.data?.items.filter((i) => i.message.status === "draft").length ?? 0;
   const [approving, setApproving] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   async function approveFromBanner() {
     setApproving(true);
     setError("");
@@ -78,6 +85,7 @@ export function Workspace() {
     if (params.get("panel") === "business") setBusinessOpen(true);
     const v = params.get("view");
     if (v === "analytics" || v === "queue") setView(v);
+    if (params.get("settings") === "open") setSettingsOpen(true);
   }, []);
   async function discover() {
     if (startGuard.current) return;
@@ -460,12 +468,13 @@ export function Workspace() {
                   </h2>
                   <p>{ready} ready to pursue</p>
                 </div>
-                <details className="search-settings">
+                <details className="search-settings" open={settingsOpen || undefined}>
                   <summary>
                     <Icon name="settings" size={16} />
                     Search settings
                   </summary>
                   <div className="search-settings-panel">
+                    <ServiceAreaMap value={p?.serviceArea ?? null} onSaved={() => void profile.reload()} />
                     <label>
                       <span className="form-label">Sources</span>
                       <select

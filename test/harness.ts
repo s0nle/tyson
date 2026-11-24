@@ -3,7 +3,7 @@ import { openDatabase } from "../src/server/db";
 import { defaultConfig, type Deps } from "../src/server/deps";
 import { handlers } from "../src/server/handlers";
 import { createApi } from "../src/server/http";
-import { fakeAi, fakeBilling, fakeSearch, makeFakeEnrich, makeFakeMail } from "../src/server/providers/fakes";
+import { fakeAi, fakeBilling, fakeGeo, fakeSearch, makeFakeEnrich, makeFakeMail } from "../src/server/providers/fakes";
 
 export async function startBackend(overrides: Partial<Omit<Deps, "db">> = {}) {
   const database = await openDatabase();
@@ -20,6 +20,7 @@ export async function startBackend(overrides: Partial<Omit<Deps, "db">> = {}) {
     enrich,
     mail,
     billing: fakeBilling,
+    geo: fakeGeo,
     afterResponse: (t) => t(),
     config: { ...defaultConfig, demoInbox: "team-inbox@example.com" },
     ...overrides,

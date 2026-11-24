@@ -1,5 +1,5 @@
 import type { IcpInference } from "@/contract";
-import type { AiProvider, BillingProvider, EnrichProvider, MailProvider, SearchProvider } from "./types";
+import type { AiProvider, GeoProvider, BillingProvider, EnrichProvider, MailProvider, SearchProvider } from "./types";
 
 /** Deterministic stand-ins so the whole product runs with zero keys. */
 
@@ -78,6 +78,28 @@ ${ctx.supplierName}` };
   },
   async summarizeCompetitors() {
     return [];
+  },
+};
+
+/** Offline gazetteer so the map and distance rules work with no network. */
+const PLACES: { label: string; lat: number; lng: number }[] = [
+  { label: "Oakland, CA", lat: 37.8044, lng: -122.2712 },
+  { label: "San Francisco, CA", lat: 37.7749, lng: -122.4194 },
+  { label: "Alameda County, CA", lat: 37.6017, lng: -121.7195 },
+  { label: "Berkeley, CA", lat: 37.8715, lng: -122.273 },
+  { label: "San Jose, CA", lat: 37.3382, lng: -121.8863 },
+  { label: "Sacramento, CA", lat: 38.5816, lng: -121.4944 },
+  { label: "Santa Rosa, CA", lat: 38.4405, lng: -122.7144 },
+  { label: "Fresno, CA", lat: 36.7378, lng: -119.7871 },
+  { label: "Los Angeles, CA", lat: 34.0522, lng: -118.2437 },
+  { label: "Hayward, CA", lat: 37.6688, lng: -122.0808 },
+  { label: "Walnut Creek, CA", lat: 37.9101, lng: -122.0652 },
+];
+export const fakeGeo: GeoProvider = {
+  kind: "fake",
+  async search(q) {
+    const t = q.toLowerCase();
+    return PLACES.filter((p) => t.includes(p.label.split(",")[0]?.toLowerCase() ?? "") || p.label.toLowerCase().includes(t.split(",")[0]?.trim() ?? ""));
   },
 };
 

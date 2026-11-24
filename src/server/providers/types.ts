@@ -80,6 +80,11 @@ export interface EnrichProvider {
   findPerson(email: string): Promise<{ linkedinUrl: string | null }>;
 }
 
+export interface GeoProvider {
+  kind: "live" | "fake";
+  search(q: string): Promise<{ label: string; lat: number; lng: number }[]>;
+}
+
 export interface MailProvider {
   kind: "live" | "fake";
   calls: number;

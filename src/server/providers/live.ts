@@ -6,6 +6,7 @@ import type {
   BillingProvider,
   CompetitorSummary,
   EnrichProvider,
+  GeoProvider,
   MailProvider,
   SearchProvider,
 } from "./types";
@@ -118,6 +119,21 @@ category: direct (same service, same region), indirect (overlapping service), al
         `Supplier capabilities: ${capabilities.join("; ")}\n\n${pages.map((p) => `URL: ${p.url}\nTITLE: ${p.title}\n${p.text.slice(0, 2500)}`).join("\n---\n")}`,
       );
       return out.competitors as CompetitorSummary[];
+    },
+  };
+}
+
+// ---------------- OpenStreetMap Nominatim geocoder (no key; generic UA per their usage policy) ----------------
+
+export function nominatimGeo(): GeoProvider {
+  return {
+    kind: "live",
+    async search(q) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=us&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { "user-agent": "TysonSalesAgent/1.0 (hackathon demo)" }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return [];
+      const rows = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+      return rows.map((r) => ({ label: r.display_name.split(", ").slice(0, 3).join(", "), lat: Number(r.lat), lng: Number(r.lon) }));
     },
   };
 }
