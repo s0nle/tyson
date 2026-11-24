@@ -163,7 +163,11 @@ export type LeadSummary = z.infer<typeof LeadSummary>;
 
 export const GraphNode = z.object({
   id: z.string(),
-  label: z.enum(["Company", "Person", "Product", "Project", "Notice", "Scope", "Signal", "Competitor", "Deadline", "Message"]),
+  /** "Service" is the pre-rename label for Product; old rows are read as Product. */
+  label: z.preprocess(
+    (v) => (v === "Service" ? "Product" : v),
+    z.enum(["Company", "Person", "Product", "Project", "Notice", "Scope", "Signal", "Competitor", "Deadline", "Message"]),
+  ),
   name: z.string(),
   props: z.record(z.string(), z.unknown()),
 });
