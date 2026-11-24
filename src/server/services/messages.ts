@@ -127,7 +127,7 @@ async function createDraft(
   const draft = await deps.ai.draft({
     persona,
     valueProp,
-    trigger: `${lead.contractorName} posted a supplier quote request for ${lead.projectNumber ?? lead.projectTitle} (${lead.ownerName}); supplier cutoff ${cutoffText}`,
+    trigger: `${lead.contractorName} is collecting supplier quotes for its bid on ${lead.ownerName}'s ${lead.projectNumber ? `${lead.projectNumber} ` : ""}project; the supplier cutoff is ${cutoffText}`,
     followUp: opts.followUp,
     supplierName: profile.companyName,
     capabilities: profile.capabilities,
@@ -144,6 +144,13 @@ async function createDraft(
     channel,
     step: opts.step,
   });
+  if (channel === "linkedin" && draft.body.length > 280) {
+    // enforce the persona's length rule: keep whole sentences up to 280 chars
+    const sentences = draft.body.match(/[^.!?]+[.!?]+/g) ?? [draft.body];
+    let out = "";
+    for (const x of sentences) if ((out + x).trim().length <= 280) out += x;
+    draft.body = (out.trim() || draft.body.slice(0, 277).trimEnd() + "…").trim();
+  }
   const recipient = deps.config.demoInbox;
   const groundedOn = [lead.notice.sourceUrl, ...lead.scopeMatches.map((s) => s.citation.url)].filter((v, i, a) => a.indexOf(v) === i);
   const route = [mailbox?.email, person ? `Attn: ${person.name}${person.title ? ` (${person.title})` : ""}` : null].filter(Boolean).join(" · ");

@@ -95,7 +95,8 @@ export function createApi(deps: Deps, handlers: Handlers) {
     } catch (err) {
       if (err instanceof ContractError) return json(err.toBody(), err.status);
       deps.log.error(err);
-      return json(new ContractError("internal", "Internal error").toBody(), 500);
+      const detail = process.env.DEBUG_ERRORS === "1" ? String(err instanceof Error ? err.message : err).slice(0, 500) : undefined;
+      return json(new ContractError("internal", "Internal error", 500, detail).toBody(), 500);
     }
   }
   return { handle, fetch: (input: RequestInfo | URL, init?: RequestInit) => handle(new Request(input, init)) };
