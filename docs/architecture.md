@@ -75,3 +75,21 @@ Planner, Builder, Reviewer and Security are attributed actors on every run step 
 
 One Next.js app on Vercel (pages + `/api/v1/[...path]` catch-all, `maxDuration` 300 s for discovery) and Neon Postgres from
 Vercel Storage. Secrets stay server-side. Locally and in tests the same SQL runs on PGlite.
+
+## 8. Additions for modules 3–5
+
+- **Ontology:** the supplier's offerings are `Product` nodes (Company -[OFFERS]-> Product -[MATCHES]-> Scope). Lead decisions are
+  edges: `(Contractor)-[:MATCHED_TO {status, score, tier, asOf}]->(Supplier)`. Outreach is in the graph too:
+  `(Person)-[:CONTACTED_VIA {channel, at}]->(Message)-[:SENT_BY]->(Supplier)` and `(Person)-[:REPLIED_TO]->(Message)`.
+- **Continuous re-qualification:** `POST /api/v1/leads/refresh` re-runs every lead against the clock and its graph evidence.
+  Status changes are logged as `lead_requalified` (actor: system), and unsent drafts on a lead that closed or whose notice
+  version changed get a `staleReason`, which blocks approval and sending. Reads trigger it at most once a minute;
+  Vercel Cron (`/api/cron/refresh`, daily) is the backstop.
+- **Enrichment:** `POST /api/v1/leads/:id/enrich-company` (Hunter company lookup, free) records verified domain, HQ, industry,
+  NAICS, size and LinkedIn company page, and updates the company tier. Verifying a contact (3 credits when deliverable) also
+  looks up that person's LinkedIn URL.
+- **Sequences:** `POST /api/v1/leads/:id/sequence` drafts email (day 0) → LinkedIn note (day 1) → follow-up email (day 3).
+  Each touch carries its persona rules (tone, length, CTA by role), the value proposition its variant tests, and the trigger
+  signal; each needs its own approval. Analytics report variants by value proposition and channel.
+- **Approval queue:** `GET /api/v1/queue` lists every draft and approved message across leads.
+- **Not built (no data in this market):** warm-intro paths via `previously_employed_at`, and competitor displacement from renewal signals.
