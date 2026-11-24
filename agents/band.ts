@@ -68,8 +68,8 @@ async function setup() {
   await post(
     "planner",
     roomId,
-    `@${REP} Room ready. Tell me what you sell: "@planner profile: <description>". I'll propose the buyer profile for your decision, then hand approved constraints to @${AGENTS.builder.handle}.`,
-    [rep, mention("builder")],
+    `@${REP} Room ready. Tell me what you sell: "@planner profile: <description>". I'll propose the buyer profile for your decision, then hand approved constraints to the Builder.`,
+    [rep],
   );
   console.log(`Room ${roomId} created. Open Band and find "Bay Controls · SD-462 qualification".`);
 }
@@ -268,6 +268,9 @@ async function run() {
       adapter: new GenericAdapter(async ({ message, tools, roomId }) => {
         const send = (t: string, m: { handle: string }[]) => tools.sendMessage(t, m.map((x) => x.handle));
         console.log(`[${role}] ← ${message.senderName ?? message.senderId}: ${message.content.slice(0, 120)}`);
+        const fromHuman = String(message.senderType ?? "").toLowerCase() === "user";
+        const handoff = /Run [0-9a-f-]{36}|message [0-9a-f-]{36}|remove|exclude/i.test(message.content);
+        if (role === "planner" ? !fromHuman : !handoff) return; // planner serves the rep; others act on real handoffs only
         try {
           await HANDLERS[role](message.content, roomId, send);
         } catch (e) {
