@@ -18,6 +18,39 @@ Same project, two different sales decisions. Sources:
 [Garney Pacific notice](https://www.sbeinc.com/cms.cfm?classifiedID=67895&fuseaction=classified.detail&pageID=51) ·
 [SD-462 CEQA listing](https://ceqanet.lci.ca.gov/2026050646).
 
+## Why this is a business
+
+**The market.** The U.S. put **$2.16 trillion** into construction in 2025, **$517 billion** of it public work
+([Census Bureau, Feb 2026 release](https://www.census.gov/construction/c30/pdf/pr202512.pdf)). Public jobs run on contractors
+asking subcontractors and suppliers for quotes (DBE outreach rules make them advertise), and those requests live in PDFs,
+weekly classifieds and agency portals. There are **463,000+** specialty trade contractor establishments
+([NAHB, from Census data](https://www.nahb.org/news-and-economics/housing-economics-plus/special-studies/special-studies-pages/home-building-census))
+competing for that work. At ~$3,600/year per supplier, that is a **~$1.7B/year** software opportunity by our estimate,
+consistent with third-party sizing of preconstruction software at ~$2.3B (2025).
+
+**Who pays.** The specialty supplier or subcontractor — its owner, estimator or sales rep — to decide where to spend scarce
+quoting hours. The customer they're selling to is the contractor assembling a bid; the utility only sets the overall schedule.
+
+**The pain (and the proof).** One public project produces several contractor requests with *different* deadlines. On EBMUD SD-462,
+Western Water's supplier form is due Dec 1 at 2 PM; Garney Pacific's quotes closed Nov 17. A project alert says "SD-462 is open";
+a rep who trusts it chases an expired request. Today a rep connects these notices by hand, reads scope, checks eligibility,
+finds the estimator and tracks the conversation in a spreadsheet.
+
+**Why us, not ConstructConnect / Dodge / BuildingConnected / PlanHub.** They sell *project* intelligence or bid-invite plumbing
+for contractors who already know you. Tyson answers the supplier's question — *which contractor wants my exact scope, by when,
+and who do I write to?* — with every claim cited, the contractor's own deadline applied, and outreach that a human approves.
+
+**Model.** Subscription + usage credits, already metered live through Flexprice: graph evaluation 1 credit, verified contact 3,
+approved send 1. Illustrative plan: $299/month including 300 credits; overage billed per credit.
+
+**Go-to-market.** Start where the demo starts — Northern California water/wastewater electrical & controls suppliers — then
+expand by trade (traffic control, concrete cutting and coring already work) and region. Each new trade is a vocabulary
+and a search profile, not a new product.
+
+**How we validate.** Give estimators the same week of notices with and without Tyson; compare hours spent qualifying, missed
+deadlines, and the number of leads they would actually pursue. Willingness to pay follows from fewer wasted quotes and more
+invitations to bid.
+
 ## Run it (zero setup)
 
 ```bash
