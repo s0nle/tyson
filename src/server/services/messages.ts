@@ -146,7 +146,8 @@ async function createDraft(
   });
   if (channel === "linkedin" && draft.body.length > 280) {
     // enforce the persona's length rule: keep whole sentences up to 280 chars
-    const sentences = draft.body.match(/[^.!?]+[.!?]+/g) ?? [draft.body];
+    // sentence ends = punctuation followed by whitespace/end (not the dot inside an email or domain)
+    const sentences = draft.body.match(/[\s\S]+?(?:[.!?](?=\s|$)|$)/g) ?? [draft.body];
     let out = "";
     for (const x of sentences) if ((out + x).trim().length <= 280) out += x;
     draft.body = (out.trim() || draft.body.slice(0, 277).trimEnd() + "…").trim();

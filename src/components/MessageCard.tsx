@@ -45,8 +45,9 @@ export function MessageCard({
       <header>
         <span className="flex items-center gap-2">
           <Icon name="mail" size={16} />
-          {m.channel === "email" ? "Email" : "LinkedIn"} · Touch {m.step} ·
-          Variant {m.variant}
+          {m.channel === "email" ? "Email" : "LinkedIn"} · Touch {m.step}
+          {m.sendAfterDays ? ` · Day ${m.sendAfterDays}` : ""} · Variant {m.variant}
+          {m.valueProp ? ` (${m.valueProp.split(":")[0]})` : ""}
         </span>
         <span className={`chip ${TONE[m.status]}`}>
           {m.status === "draft"
@@ -65,6 +66,7 @@ export function MessageCard({
           To <strong className="font-medium text-ink">{m.recipient}</strong>
           <p className="text-xs mt-1">{m.recipientLabel}</p>
         </div>
+        {m.persona && <p className="field-help mb-4">Tone rules: {m.persona}</p>}
         {m.staleReason && (
           <p className="notice notice-error mb-5">
             This draft needs updating: {m.staleReason}

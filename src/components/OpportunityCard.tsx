@@ -147,6 +147,20 @@ function Outreach({ leadId }: { leadId: string }) {
       setDrafting(false);
     }
   }
+  async function sequence() {
+    if (guard.current) return;
+    setDraftComplete(false);
+    setDrafting(true);
+    try {
+      const done = await act(
+        () => api("draftSequence", { params: { leadId }, body: { variant: "A" } }),
+        "Three drafts ready: email (day 0), LinkedIn (day 1), follow-up (day 3). Approve each before sending.",
+      );
+      setDraftComplete(done);
+    } finally {
+      setDrafting(false);
+    }
+  }
   if (error) return <Notice error>{error.message}</Notice>;
   if (!lead) return <ProgressBar label="Loading outreach workspace" />;
   const actionable = lead.qualification.status === "actionable";
@@ -197,6 +211,15 @@ function Outreach({ leadId }: { leadId: string }) {
             >
               LinkedIn note
             </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy || !actionable}
+              title="Email today, LinkedIn note on day 1, follow-up email on day 3. Each touch needs your approval."
+              onClick={() => sequence()}
+            >
+              3-touch sequence
+            </button>
           </div>
           {(drafting || draftComplete) && (
             <div className="draft-progress">
@@ -234,6 +257,45 @@ function Outreach({ leadId }: { leadId: string }) {
           </div>
         </div>
         <aside className="outreach-contacts">
+          <div className="company-card">
+            <span className="column-label">Company</span>
+            <strong>{lead.company?.legalName ?? lead.contractorName}</strong>
+            {lead.company ? (
+              <>
+                <p>{lead.company.headquarters ?? "Headquarters unknown"}</p>
+                <p>
+                  {[lead.company.industry, lead.company.employees ? `${lead.company.employees} employees` : null, lead.company.naics ? `NAICS ${lead.company.naics}` : null]
+                    .filter(Boolean)
+                    .join(" · ") || "No firmographics found"}
+                </p>
+                <p className="flex gap-3 flex-wrap mt-1">
+                  <span className={`chip ${lead.company.domainVerified ? "tone-open" : "tone-muted"}`}>
+                    {lead.company.domainVerified ? `${lead.company.domain} verified` : `${lead.company.domain} not found`}
+                  </span>
+                  {lead.company.linkedinUrl && (
+                    <a className="text-link !text-xs" href={lead.company.linkedinUrl} target="_blank" rel="noreferrer">
+                      LinkedIn page
+                    </a>
+                  )}
+                </p>
+                <p className="field-help">{lead.company.provider}</p>
+              </>
+            ) : (
+              <>
+                <p>{lead.contractor.domain ?? "No company domain published"}</p>
+                {lead.contractor.domain && (
+                  <button
+                    type="button"
+                    className="btn btn-small mt-2"
+                    disabled={busy}
+                    onClick={() => act(() => api("enrichCompany", { params: { leadId }, body: {} }), "Company details added. No credits used.")}
+                  >
+                    Look up company · free
+                  </button>
+                )}
+              </>
+            )}
+          </div>
           <h4>Contacts</h4>
           <p className="section-description">
             Published details. Verify before reaching out.
@@ -460,6 +522,11 @@ function ContactCard({
       </p>
       <p className="mt-2 break-all">{c.email ?? "No email published"}</p>
       {c.phone && <p>{c.phone}</p>}
+      {c.linkedinUrl && (
+        <a className="text-link !text-xs" href={c.linkedinUrl} target="_blank" rel="noreferrer">
+          LinkedIn profile
+        </a>
+      )}
       <span
         className={`chip mt-3 ${v.status === "valid" ? "tone-open" : v.status === "invalid" || v.status === "blocked" ? "tone-closed" : "tone-muted"}`}
       >

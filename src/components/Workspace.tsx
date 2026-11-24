@@ -8,6 +8,8 @@ import { BusinessDrawer, HoverAccordion } from "./HoverPanels";
 import { BusinessProfile } from "./BusinessProfile";
 import { DiscoveryProgress } from "./Progress";
 import { OpportunityCard } from "./OpportunityCard";
+import { AnalyticsPanel } from "./AnalyticsPanel";
+import { QueuePanel } from "./QueuePanel";
 
 export function Workspace() {
   const profile = usePoll(() => api("getProfile"), [], 0);
@@ -27,6 +29,16 @@ export function Workspace() {
   const [error, setError] = useState("");
   const [initialLead, setInitialLead] = useState("");
   const [competitionVisible, setCompetitionVisible] = useState(true);
+  const [view, setView] = useState<"opportunities" | "queue" | "analytics">("opportunities");
+  const queue = usePoll(() => api("getQueue"), [], 4000);
+  const queueCount = queue.data?.items.filter((i) => i.message.status === "draft").length ?? 0;
+  function openLead(id: string) {
+    setInitialLead(id);
+    setView("opportunities");
+    setFilter("all");
+    setStage(null);
+    setSearch("");
+  }
   const startGuard = useRef(false);
   const resultsRef = useRef<HTMLElement>(null);
   const run = runs.data?.runs[0];
@@ -50,6 +62,8 @@ export function Workspace() {
     const params = new URLSearchParams(window.location.search);
     setInitialLead(params.get("lead") || "");
     if (params.get("panel") === "business") setBusinessOpen(true);
+    const v = params.get("view");
+    if (v === "analytics" || v === "queue") setView(v);
   }, []);
   async function discover() {
     if (startGuard.current) return;
@@ -143,10 +157,33 @@ export function Workspace() {
         </a>
         <div className="workspace-nav">
           <div className="workspace-label">YOUR WORKSPACE</div>
-          <a href="#main-content" className="nav-link active">
+          <button
+            type="button"
+            className={`nav-link ${view === "opportunities" ? "active" : ""}`}
+            aria-current={view === "opportunities" ? "page" : undefined}
+            onClick={() => setView("opportunities")}
+          >
             <Icon name="search" size={19} />
             Opportunities<span className="nav-count">{all.length}</span>
-          </a>
+          </button>
+          <button
+            type="button"
+            className={`nav-link ${view === "queue" ? "active" : ""}`}
+            aria-current={view === "queue" ? "page" : undefined}
+            onClick={() => setView("queue")}
+          >
+            <Icon name="mail" size={19} />
+            Approval queue<span className="nav-count">{queueCount}</span>
+          </button>
+          <button
+            type="button"
+            className={`nav-link ${view === "analytics" ? "active" : ""}`}
+            aria-current={view === "analytics" ? "page" : undefined}
+            onClick={() => setView("analytics")}
+          >
+            <Icon name="pipeline" size={19} />
+            Analytics
+          </button>
           <BusinessDrawer
             open={businessOpen}
             onOpen={() => setBusinessOpen(true)}
@@ -320,6 +357,15 @@ export function Workspace() {
             </button>
           </div>
         </header>
+        {view === "analytics" ? (
+          <main id="main-content" className="workspace-canvas single">
+            <AnalyticsPanel />
+          </main>
+        ) : view === "queue" ? (
+          <main id="main-content" className="workspace-canvas single">
+            <QueuePanel onOpenLead={openLead} />
+          </main>
+        ) : (
         <div className="workspace-canvas">
           <main id="main-content" className="opportunities-main">
             <header className="dashboard-heading">
@@ -593,6 +639,7 @@ export function Workspace() {
             </div>
           </aside>
         </div>
+        )}
       </div>
     </div>
   );
