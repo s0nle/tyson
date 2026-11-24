@@ -9,3 +9,6 @@ next-env.d.ts
 .vercel
 .env*
 .band-room.json
+
+# Local PDF review tools
+.codex-tools/

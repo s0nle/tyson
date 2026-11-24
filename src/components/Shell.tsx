@@ -1,99 +1,158 @@
-"use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { api, refreshAll, setUser } from "@/lib/api";
-import { usePoll, useUser } from "@/lib/hooks";
-
-const NAV = [
-  { href: "/", label: "Supplier profile", hint: "What you sell, who buys it" },
-  { href: "/opportunities", label: "Opportunities", hint: "Contractors asking for quotes" },
-  { href: "/pipeline", label: "Pipeline", hint: "Outreach, replies, credits" },
-];
+﻿"use client";
+import { useEffect, useState } from "react";
+import { api, getUser, refreshAll, setUser } from "@/lib/api";
+import { useUser } from "@/lib/hooks";
+import { Brand, Icon } from "./ui";
+import { ProgressBar } from "./Progress";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const user = useUser();
-  const path = usePathname();
-  const { data: me } = usePoll(() => api("getMe"), [user], 4000);
-  const [name, setName] = useState("");
-
-  if (!user) {
+  const [ready, setReady] = useState(false);
+  const [company, setCompany] = useState("");
+  const [description, setDescription] = useState("");
+  const [onboarding, setOnboarding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    try {
+      const draft = JSON.parse(localStorage.getItem("cse.intake") || "null");
+      if (draft) {
+        setCompany(draft.companyName || "");
+        setDescription(draft.description || "");
+      }
+    } catch {}
+    setReady(true);
+  }, []);
+  async function start(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setOnboarding(true);
+    setError("");
+    try {
+      localStorage.setItem(
+        "cse.intake",
+        JSON.stringify({
+          companyName: company.trim(),
+          description: description.trim(),
+        }),
+      );
+      setUser(getUser() || `business-${crypto.randomUUID()}`);
+      await api("inferProfile", {
+        body: { companyName: company.trim(), description: description.trim() },
+      });
+      refreshAll();
+      setOnboarding(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!ready)
     return (
-      <main className="min-h-screen grid place-items-center p-4">
-        <form
-          className="panel p-6 w-full max-w-sm space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim()) setUser(name);
-          }}
-        >
-          <div>
-            <h1 className="text-2xl font-extrabold condensed">Contractor Sales Engine</h1>
-            <p className="text-sm text-ink-2 mt-1">Sign in with any name. Each name is its own supplier account with 6 demo credits.</p>
-          </div>
-          <input className="field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          <button type="submit" className="btn btn-primary w-full justify-center">Sign in</button>
-        </form>
+      <main className="loading-workspace" role="status">
+        Opening your workspace…
       </main>
     );
-  }
-
-  return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[232px_1fr]">
-      <aside className="border-b lg:border-b-0 lg:border-r border-rule bg-sheet lg:min-h-screen p-4 flex lg:flex-col gap-4">
-        <div className="lg:mb-4">
-          <div className="text-lg font-extrabold condensed leading-tight">Contractor<br className="hidden lg:block" /> Sales Engine</div>
-        </div>
-        <nav className="flex lg:flex-col gap-1 overflow-x-auto">
-          {NAV.map((n) => {
-            const active = n.href === "/" ? path === "/" : path.startsWith(n.href) || (n.href === "/opportunities" && path.startsWith("/leads"));
-            return (
-              <Link key={n.href} href={n.href} className={`rounded-md px-3 py-2 whitespace-nowrap ${active ? "bg-spec-2 text-spec" : "hover:bg-rule-2"}`}>
-                <div className="text-sm font-semibold">{n.label}</div>
-                <div className="text-xs text-ink-3 hidden lg:block">{n.hint}</div>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="mt-auto hidden lg:block space-y-3 text-xs text-ink-2">
-          {me && (
-            <div className="panel p-3">
-              <div className="flex items-baseline justify-between">
-                <span className="font-semibold text-ink">Credits</span>
-                <span className="text-2xl font-extrabold condensed text-ink">{me.credits.available}</span>
-              </div>
-              <div className="text-ink-3">{me.credits.spent} spent of {me.credits.granted}</div>
-            </div>
-          )}
-          {me && (
-            <div className="space-y-1">
-              {Object.entries(me.providers).map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <span>{({ openai: "OpenAI", tavily: "Tavily search", hunter: "Hunter.io", resend: "Resend email", flexprice: "Flexprice billing" } as Record<string, string>)[k] ?? k}</span>
-                  <span className={v === "live" ? "text-open font-semibold" : "text-ink-3"}>{v === "live" ? "Live" : "Fake"}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center justify-between pt-2 border-t border-rule">
-            <span>Signed in as <b className="text-ink">{user}</b></span>
-            <button type="button" className="underline" onClick={() => setUser("")}>Switch</button>
+  if (!user || onboarding)
+    return (
+      <main className="welcome">
+        <div className="welcome-story">
+          <Brand />
+          <div>
+            <p className="eyebrow">BUILT FOR SUPPLIERS</p>
+            <h1>
+              Your next customer
+              <br />
+              is looking for
+              <br />
+              <span>what you do.</span>
+            </h1>
+            <p>
+              Tell us about your business.
+              <br />
+              We’ll find the right opportunities.
+            </p>
           </div>
-          <button
-            type="button"
-            className="underline text-ink-3"
-            onClick={async () => {
-              if (confirm("Reset this account's leads, messages and credits?")) {
-                await api("resetDemo");
-                refreshAll();
-              }
-            }}
-          >
-            Reset demo data
-          </button>
+          <span className="welcome-foot">
+            Real buying signals. Conversations that matter.
+          </span>
         </div>
-      </aside>
-      <main className="p-4 lg:p-8 max-w-[1400px] w-full">{children}</main>
-    </div>
-  );
+        <div className="welcome-form">
+          <form onSubmit={start}>
+            <p className="eyebrow">LET’S GET TO KNOW YOUR BUSINESS</p>
+            <h2>What do you do?</h2>
+            <p>A little context helps us find your best-fit customers.</p>
+            <label className="form-label" htmlFor="onboarding-company">
+              Company name
+            </label>
+            <input
+              id="onboarding-company"
+              className="field"
+              placeholder="e.g. Bay Controls Co"
+              autoComplete="organization"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              required
+              maxLength={120}
+              disabled={busy}
+            />
+            <label className="form-label mt-5" htmlFor="onboarding-description">
+              What does your company do?
+            </label>
+            <textarea
+              id="onboarding-description"
+              className="field min-h-32"
+              placeholder="What you sell, who you help, and where you work…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              minLength={10}
+              maxLength={4000}
+              required
+              disabled={busy}
+            />
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={
+                busy || !company.trim() || description.trim().length < 10
+              }
+            >
+              <Icon name="spark" size={17} />
+              {busy ? "Building your buyer profile…" : "Create my workspace"}
+            </button>
+            {busy && (
+              <div className="mt-5">
+                <ProgressBar label="Understanding your business" />
+              </div>
+            )}
+            {error && (
+              <p className="notice notice-error mt-5" role="alert">
+                {error} Your business details are saved. Please try again.
+              </p>
+            )}
+            <div className="welcome-note">
+              <Icon name="credit" size={17} />
+              <span>
+                6 demo credits included. Review your profile before searching.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="text-link !w-auto !mt-5"
+              disabled={busy}
+              onClick={() => {
+                setCompany("Bay Controls Co");
+                setDescription(
+                  "We retrofit motor control centers and install instrumentation at Northern California water plants. We sell to contractors currently collecting supplier quotes.",
+                );
+              }}
+            >
+              Try the Oakland example
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  return <div key={user}>{children}</div>;
 }
