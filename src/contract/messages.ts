@@ -19,7 +19,7 @@ export const Message = z.object({
   id: Id,
   leadId: Id,
   /** Position in the sequence: 1 = first touch. */
-  step: z.int().min(1).max(5),
+  step: z.int().min(1).max(20),
   channel: Channel,
   variant: z.enum(["A", "B"]),
   revision: z.int().min(1),
