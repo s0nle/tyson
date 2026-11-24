@@ -167,14 +167,15 @@ export function flexpriceBilling(apiKey: string, baseUrl: string): BillingProvid
     kind: "live",
     customerExternalId: ext,
     async ensureCustomer(orgId, name) {
-      const res = await fetch(`${base}/customers/external/${ext(orgId)}`, { headers: h });
+      const res = await fetch(`${base}/customers/external/${ext(orgId)}`, { headers: h, signal: AbortSignal.timeout(8000) });
       if (res.ok) return;
-      await fetch(`${base}/customers`, { method: "POST", headers: h, body: JSON.stringify({ external_id: ext(orgId), name }) });
+      await fetch(`${base}/customers`, { method: "POST", headers: h, body: JSON.stringify({ external_id: ext(orgId), name }), signal: AbortSignal.timeout(8000) });
     },
     async ingest(e) {
       const res = await fetch(`${base}/events`, {
         method: "POST",
         headers: h,
+        signal: AbortSignal.timeout(8000),
         body: JSON.stringify({
           event_id: e.id,
           event_name: e.eventName,
@@ -186,16 +187,16 @@ export function flexpriceBilling(apiKey: string, baseUrl: string): BillingProvid
       return res.ok;
     },
     async walletBalance(orgId) {
-      const c = await fetch(`${base}/customers/external/${ext(orgId)}`, { headers: h });
+      const c = await fetch(`${base}/customers/external/${ext(orgId)}`, { headers: h, signal: AbortSignal.timeout(8000) });
       if (!c.ok) return null;
       const cust = (await c.json()) as { id?: string };
       if (!cust.id) return null;
-      const w = await fetch(`${base}/customers/${cust.id}/wallets`, { headers: h });
+      const w = await fetch(`${base}/customers/${cust.id}/wallets`, { headers: h, signal: AbortSignal.timeout(8000) });
       if (!w.ok) return null;
       const wallets = (await w.json()) as { id: string }[] | { items?: { id: string }[] };
       const first = Array.isArray(wallets) ? wallets[0] : wallets.items?.[0];
       if (!first) return null;
-      const b = await fetch(`${base}/wallets/${first.id}/balance/real-time`, { headers: h });
+      const b = await fetch(`${base}/wallets/${first.id}/balance/real-time`, { headers: h, signal: AbortSignal.timeout(8000) });
       if (!b.ok) return null;
       const bal = (await b.json()) as { real_time_credit_balance?: number | string; credit_balance?: number | string };
       const v = Number(bal.real_time_credit_balance ?? bal.credit_balance);
