@@ -79,7 +79,7 @@ Retrieved at ${retrievedAt}.`,
         `Write a short first-touch ${ctx.channel === "email" ? "email (<= 110 words)" : "LinkedIn connection note (<= 280 characters)"} from a specialty supplier to a contractor's estimating contact.
 The single ask is: share the applicable electrical drawings and retrofit specifications so the supplier can determine what it can quote.
 Ground every claim in the given scopes and the contractor's own request; never mention pricing, delivery promises or the utility's budget.
-Value proposition to lead with (paraphrase it; never paste it or its label verbatim): ${ctx.valueProp}. The utility owns the project; the contractor is bidding it and asking suppliers for quotes — never say the contractor posted or owns the project. Persona rules (follow exactly): ${ctx.persona}.
+Value proposition to lead with (paraphrase it; never paste it or its label verbatim): ${ctx.valueProp}. The utility owns the project; the contractor is bidding it and asking suppliers for quotes — never say the contractor posted or owns the project. responseMethod is what the SUPPLIER must do (e.g. submit the contractor's form); never ask the contractor to fill in its own form. For LinkedIn: two short sentences, under 250 characters, ending with the CTA. Persona rules (follow exactly): ${ctx.persona}.
 Weave in this trigger signal naturally: ${ctx.trigger}.${ctx.followUp ? " This is a short follow-up to an earlier email; reference it in one clause and keep it under 70 words." : ""}
 Plain text, no markdown, sign off with the supplier name.`,
         JSON.stringify(ctx),
