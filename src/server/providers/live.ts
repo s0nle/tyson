@@ -26,6 +26,10 @@ const CompetitorList = z.object({
   ),
 });
 
+const SearchPlan = z.object({
+  queries: z.array(z.object({ query: z.string(), classifiedsOnly: z.boolean(), why: z.string() })),
+});
+
 export function openAiProvider(apiKey: string, model: string): AiProvider {
   const client = new OpenAI({ apiKey });
   async function structured<S extends z.ZodType>(name: string, schema: S, system: string, user: string): Promise<z.output<S>> {
@@ -85,6 +89,24 @@ Weave in this trigger signal naturally: ${ctx.trigger}.${ctx.followUp ? " This i
 Plain text, no markdown, sign off with the supplier name.`,
         JSON.stringify(ctx),
       ),
+    async planSearches(input) {
+      const out = await structured(
+        "search_plan",
+        SearchPlan,
+        `You are the Planner for a B2B sales agent. The user is a specialty supplier/subcontractor. Find GENERAL CONTRACTORS that are
+currently asking subcontractors or suppliers for quotes for this supplier's work (sub-bid requests, "requesting quotes from
+DBE/SBE subcontractors", "seeking quotes for", outreach notices for public works bids).
+Write 4 web search queries. Rules:
+- Use the trade vocabulary contractors actually print in sub-bid lists for this work (e.g. traffic control → "Traffic Control",
+  "Construction Area Signs", "Flagging"; concrete cutting → "Saw Cutting", "Core Drilling"), not the supplier's marketing words.
+- Include the region (cities/counties) and the year 2026. Prefer phrases like "requesting quotes", "sub-bid request",
+  "seeking quotes", "bid date".
+- Mark 2 of them classifiedsOnly=true: those run only against sub-bid classified sites, so keep them short (trade terms + region).
+- Never target the supplier's competitors or job ads.`,
+        JSON.stringify(input),
+      );
+      return out.queries.slice(0, 5);
+    },
     async summarizeCompetitors({ capabilities, pages }) {
       if (pages.length === 0) return [];
       const out = await structured(

@@ -2181,3 +2181,10 @@ table.datagrid td {
   margin-left: 6px;
   white-space: nowrap;
 }
+
+.caution-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}

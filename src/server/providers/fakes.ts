@@ -68,6 +68,14 @@ ${ctx.supplierName}` };
         : `${who}\n\n${ctx.supplierName} focuses on ${ctx.capabilities.join(", ").toLowerCase()}${ctx.pastWins ? ` (recent: ${ctx.pastWins})` : ""}. Your ${ctx.projectTitle} request lists ${items}.\n\nIf you send the applicable electrical drawings, we can confirm scope and turn a quote before the ${ctx.cutoffText} cutoff.\n\nBest,\n${ctx.supplierName}`;
     return { subject: `${ctx.projectTitle}: ${items} quote — drawings request`, body };
   },
+  async planSearches({ capabilities, regions }) {
+    const region = regions[0] ?? "California";
+    const caps = capabilities.slice(0, 2);
+    return [
+      ...caps.map((c) => ({ query: `"requesting quotes" OR "sub-bid request" subcontractors ${c} ${region} 2026`, classifiedsOnly: false, why: `Contractors requesting ${c}` })),
+      { query: `${caps.join(" ")} sub bid request quotes ${region} 2026`, classifiedsOnly: true, why: "Sub-bid classifieds" },
+    ];
+  },
   async summarizeCompetitors() {
     return [];
   },

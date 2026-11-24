@@ -15,6 +15,7 @@ import {
 } from "@/contract";
 import { getDoc, listDocs, putDoc } from "../db";
 import type { Deps } from "../deps";
+import { fakeAi } from "../providers/fakes";
 import { OWNER_SOURCE, SEED_NOTICES, type SeedSource } from "../seed";
 import { AGENTS, iso, logActivity, type Org } from "./base";
 import { clearRel, matchCandidates, upsertEdge, upsertNode } from "./graph";
@@ -304,6 +305,9 @@ function focusText(content: string, capabilities: string[]): string {
   return content.slice(Math.max(0, at - 5000), at + 7000);
 }
 
+/** Public sub-bid classifieds where contractors post "requesting quotes" notices. */
+const CLASSIFIEDS = ["sbeinc.com"];
+
 async function liveDiscovery(
   deps: Deps,
   org: Org,
@@ -314,11 +318,22 @@ async function liveDiscovery(
   const region = profile.regions[0] ?? "California";
   // Built from the supplier's own services and region (no industry baked in). One query targets the
   // sub-bid classifieds where contractors publish supplier/sub quote requests.
-  const caps = profile.capabilities.slice(0, 2);
-  const queries: { q: string; domains?: string[] }[] = [
-    ...caps.map((c) => ({ q: `"requesting quotes" OR "sub-bid request" subcontractors ${c} ${region} 2026` })),
-    { q: `${caps.join(" ")} sub bid request quotes ${region} 2026`, domains: ["sbeinc.com"] },
-  ];
+  // Planner (OpenAI) writes the searches from the approved profile; deterministic fallback if the model call fails.
+  const icp = (k: string) => profile.icp.find((f) => f.key === k && f.status !== "dismissed")?.values ?? [];
+  const planInput = {
+    companyName: profile.companyName,
+    description: profile.description,
+    capabilities: profile.capabilities,
+    regions: profile.regions,
+    buyerRoles: icp("buyer_roles"),
+    signals: icp("buying_signals"),
+  };
+  const plan = await deps.ai.planSearches(planInput).catch(() => fakeAi.planSearches(planInput));
+  const queries: { q: string; domains?: string[] }[] = plan.map((p) => ({
+    q: p.query,
+    domains: p.classifiedsOnly ? CLASSIFIEDS : undefined,
+  }));
+  await step(AGENTS.planner, "plan", `Search plan for ${profile.companyName} (${region}): ${plan.map((p) => p.why).join("; ")}. @builder run these.`);
   const seen = new Set(SEED_NOTICES.map((s) => s.url));
   const pages: { url: string; title: string; content: string }[] = [];
   for (const q of queries) {

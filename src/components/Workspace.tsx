@@ -32,6 +32,20 @@ export function Workspace() {
   const [view, setView] = useState<"opportunities" | "queue" | "analytics">("opportunities");
   const queue = usePoll(() => api("getQueue"), [], 4000);
   const queueCount = queue.data?.items.filter((i) => i.message.status === "draft").length ?? 0;
+  const [approving, setApproving] = useState(false);
+  async function approveFromBanner() {
+    setApproving(true);
+    setError("");
+    try {
+      await api("approveProfile");
+      await profile.reload();
+      refreshAll();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setApproving(false);
+    }
+  }
   function openLead(id: string) {
     setInitialLead(id);
     setView("opportunities");
@@ -402,13 +416,26 @@ export function Workspace() {
                       : "Tell us about your business so we can find the right matches."}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setBusinessOpen(true)}
-                >
-                  {p ? "Review profile" : "Set up profile"}
-                </button>
+                <div className="caution-actions">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setBusinessOpen(true)}
+                  >
+                    {p ? "Review profile" : "Set up profile"}
+                  </button>
+                  {p && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={approving}
+                      onClick={approveFromBanner}
+                    >
+                      <Icon name="check" size={16} />
+                      {approving ? "Approving…" : "Approve profile"}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             {requestError && (

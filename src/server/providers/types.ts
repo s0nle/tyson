@@ -40,6 +40,15 @@ export interface AiProvider {
   inferIcp(input: { companyName: string; description: string }): Promise<IcpInference>;
   extractNotice(input: { url: string; title: string; text: string; retrievedAt: string; capabilities?: string[] }): Promise<NoticeExtraction>;
   draft(ctx: DraftContext): Promise<DraftOutput>;
+  /** Planner: turn the approved profile into web searches for contractors requesting this supplier's work. */
+  planSearches(input: {
+    companyName: string;
+    description: string;
+    capabilities: string[];
+    regions: string[];
+    buyerRoles: string[];
+    signals: string[];
+  }): Promise<{ query: string; classifiedsOnly: boolean; why: string }[]>;
   summarizeCompetitors(input: { capabilities: string[]; pages: { url: string; title: string; text: string }[] }): Promise<CompetitorSummary[]>;
 }
 

@@ -29,7 +29,7 @@ export interface Deps {
 export const defaultConfig: Config = {
   demoInbox: "demo-inbox@example.com",
   inboundDomain: null,
-  maxLivePages: 4,
+  maxLivePages: 6,
 };
 
 function warn(name: string) {
