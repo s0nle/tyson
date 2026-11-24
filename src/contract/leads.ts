@@ -163,7 +163,7 @@ export type LeadSummary = z.infer<typeof LeadSummary>;
 
 export const GraphNode = z.object({
   id: z.string(),
-  label: z.enum(["Company", "Person", "Service", "Project", "Notice", "Scope", "Signal", "Competitor", "Deadline"]),
+  label: z.enum(["Company", "Person", "Product", "Project", "Notice", "Scope", "Signal", "Competitor", "Deadline", "Message"]),
   name: z.string(),
   props: z.record(z.string(), z.unknown()),
 });
@@ -171,9 +171,28 @@ export const GraphEdge = z.object({ from: z.string(), to: z.string(), rel: z.str
 export const GraphView = z.object({ nodes: z.array(GraphNode), edges: z.array(GraphEdge) });
 export type GraphView = z.infer<typeof GraphView>;
 
+/** Firmographics for the contractor, from an enrichment provider (free; separate from contact verification). */
+export const CompanyEnrichment = z.object({
+  domain: z.string(),
+  /** Provider resolved the domain to a real company record. */
+  domainVerified: z.boolean(),
+  legalName: z.string().nullable(),
+  headquarters: z.string().nullable(),
+  industry: z.string().nullable(),
+  naics: z.string().nullable(),
+  employees: z.string().nullable(),
+  linkedinUrl: z.string().nullable(),
+  provider: z.string(),
+  checkedAt: Timestamp,
+});
+export type CompanyEnrichment = z.infer<typeof CompanyEnrichment>;
+
 export const LeadDetail = LeadSummary.extend({
   project: Project,
   contractor: z.object({ id: Id, name: z.string(), domain: z.string().nullable() }),
+  company: CompanyEnrichment.nullable().default(null),
+  /** Warm intro paths: your team member previously employed where this contact's company is. */
+  warmPaths: z.array(z.object({ teammate: z.string(), via: z.string(), path: z.array(z.string()) })).default([]),
   notice: z.object({
     id: Id,
     title: z.string(),
@@ -253,7 +272,7 @@ export const Analytics = z.object({
   bySegment: z.array(z.object({ key: z.string(), leads: z.int(), contacted: z.int(), replied: z.int() })),
   byTier: z.array(z.object({ key: z.string(), leads: z.int(), contacted: z.int(), replied: z.int() })),
   variants: z.array(
-    z.object({ variant: z.enum(["A", "B"]), channel: z.string(), sent: z.int(), replied: z.int(), rate: z.number().nullable() }),
+    z.object({ variant: z.enum(["A", "B"]), valueProp: z.string(), channel: z.string(), sent: z.int(), replied: z.int(), rate: z.number().nullable() }),
   ),
 });
 export type Analytics = z.infer<typeof Analytics>;
@@ -271,3 +290,13 @@ export const AgentNoteRequest = z.object({
   bandRoomId: z.string().max(100).optional(),
 });
 export type AgentNoteRequest = z.input<typeof AgentNoteRequest>;
+
+export const RefreshRequest = z.object({ asOf: Timestamp.optional() });
+export type RefreshRequest = z.input<typeof RefreshRequest>;
+export const RefreshResponse = z.object({
+  asOf: Timestamp,
+  checked: z.int(),
+  changed: z.array(z.object({ leadId: Id, contractorName: z.string(), from: QualificationStatus, to: QualificationStatus, reason: z.string() })),
+  staleMessages: z.int(),
+});
+export type RefreshResponse = z.infer<typeof RefreshResponse>;

@@ -51,6 +51,14 @@ export const fakeAi: AiProvider = {
   async draft(ctx) {
     const who = ctx.recipientName ? `Hi ${ctx.recipientName.split(" ")[0]},` : "Hello estimating team,";
     const items = ctx.matchedScopes.slice(0, 2).join(" and ");
+    if (ctx.followUp) {
+      return { subject: `Re: ${ctx.projectTitle} — drawings request`, body: `${who}
+
+Following up on my note about ${items}. If the electrical drawings are easier to share as a plan-room link, that works too; we want to confirm scope well before the ${ctx.cutoffText} cutoff.
+
+Thanks,
+${ctx.supplierName}` };
+    }
     if (ctx.channel === "linkedin") {
       return { subject: "LinkedIn note", body: `${who} we supply ${ctx.capabilities[0]?.toLowerCase()} for Northern California water plants and saw ${items} in ${ctx.contractorName}'s request for ${ctx.projectTitle}. Happy to quote if you can share the electrical drawings.` };
     }
@@ -77,6 +85,12 @@ export function makeFakeEnrich(): EnrichProvider {
         return { status: "unknown", score: null, note: "Role/shared mailbox: deliverability could not be confirmed (fake provider)" };
       }
       return { status: "valid", score: 92, note: "Deliverable mailbox, MX records present (fake provider)" };
+    },
+    async findCompany(domain) {
+      return { found: true, legalName: domain.split(".")[0] ?? domain, headquarters: "Santa Rosa, California, United States (fake)", industry: "Construction & Engineering", naics: "23", employees: "51-250", linkedinUrl: null };
+    },
+    async findPerson() {
+      return { linkedinUrl: null };
     },
   };
   return p;

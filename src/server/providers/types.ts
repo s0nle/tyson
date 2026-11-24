@@ -15,6 +15,14 @@ export interface DraftContext {
   variant: "A" | "B";
   channel: "email" | "linkedin";
   step: number;
+  /** Tone / length / CTA rules for the recipient's role. */
+  persona: string;
+  /** The value proposition this variant leads with. */
+  valueProp: string;
+  /** Trigger signal to weave in, e.g. "Sub-bid request posted for SD-462; form due Dec 1". */
+  trigger: string;
+  /** Follow-up touch (references the first message). */
+  followUp: boolean;
 }
 
 export interface CompetitorSummary {
@@ -51,6 +59,16 @@ export interface EnrichProvider {
   /** Number of provider calls made (lets tests prove a blocked lookup made zero calls). */
   calls: number;
   verifyEmail(email: string): Promise<{ status: VerifyStatus; score: number | null; note: string }>;
+  findCompany(domain: string): Promise<{
+    found: boolean;
+    legalName: string | null;
+    headquarters: string | null;
+    industry: string | null;
+    naics: string | null;
+    employees: string | null;
+    linkedinUrl: string | null;
+  }>;
+  findPerson(email: string): Promise<{ linkedinUrl: string | null }>;
 }
 
 export interface MailProvider {

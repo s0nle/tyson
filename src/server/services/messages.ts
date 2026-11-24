@@ -10,7 +10,9 @@ import {
 import { getDoc, listDocs, putDoc } from "../db";
 import type { Deps } from "../deps";
 import { AGENTS, idempotent, iso, logActivity, type Org, release, rep, reserve, settle } from "./base";
-import { requireLead, setStage } from "./leads";
+import { upsertEdge, upsertNode } from "./graph";
+import { allLeads, requireLead, setStage, supplierNode, toSummary } from "./leads";
+import { slug } from "./records";
 import { getProfile } from "./profile";
 
 async function requireMessage(deps: Deps, org: Org, id: string) {
@@ -32,19 +34,101 @@ function securityCheck(body: string, groundedOn: string[], recipient: string, de
   return { passed: findings.length === 0, findings: findings.length ? findings : ["Links, destination and attachments OK (no attachments)"] };
 }
 
+export const VALUE_PROPS = {
+  A: "Scope match: we do exactly the equipment items listed in your request",
+  B: "Local track record: Northern California water-plant retrofits delivered on schedule",
+} as const;
+
+/** Persona rules by the recipient's role (tone, max length, CTA). */
+export function personaFor(title: string | null, kind: "person" | "shared_mailbox", channel: "email" | "linkedin"): string {
+  const t = (title ?? "").toLowerCase();
+  const len = channel === "linkedin" ? "max 280 characters" : "max 110 words";
+  if (kind === "shared_mailbox") {
+    return `Estimating mailbox: formal, reference their solicitation form and project name, ${len}, CTA = request drawings/specs and confirm the form route`;
+  }
+  if (/estimat|coordinator/.test(t)) return `Estimator: concise and technical, name the exact scope items, ${len}, CTA = share electrical drawings and retrofit specs`;
+  if (/purchas|procure|buyer/.test(t)) return `Purchasing: plain business tone, emphasize quote turnaround, ${len}, CTA = confirm quote format and due date`;
+  if (/project manager/.test(t)) return `Project manager: schedule-focused, mention retrofit sequencing, ${len}, CTA = 15-minute scope call`;
+  return `Estimating contact: concise, specific scope, ${len}, CTA = share drawings and specs`;
+}
+
+const leadMessages = async (deps: Deps, org: Org, leadId: string) =>
+  (await listDocs(deps.db, org.id, "message", Message)).filter((m) => m.leadId === leadId);
+
 export async function draftMessage(deps: Deps, org: Org, leadId: string, req: DraftRequest) {
+  const existing = await leadMessages(deps, org, leadId);
+  return createDraft(deps, org, leadId, {
+    channel: req.channel ?? "email",
+    variant: req.variant ?? "A",
+    step: existing.length + 1,
+    sendAfterDays: 0,
+    followUp: false,
+  });
+}
+
+/** Three-touch sequence: email (day 0) → LinkedIn note (day 1) → follow-up email (day 3). Each touch needs its own approval. */
+export async function draftSequence(deps: Deps, org: Org, leadId: string, req: { variant?: "A" | "B" }) {
+  const variant = req.variant ?? "A";
+  const base = (await leadMessages(deps, org, leadId)).length;
+  const plan = [
+    { channel: "email" as const, sendAfterDays: 0, followUp: false },
+    { channel: "linkedin" as const, sendAfterDays: 1, followUp: false },
+    { channel: "email" as const, sendAfterDays: 3, followUp: true },
+  ];
+  const messages = await Promise.all(plan.map((p, i) => createDraft(deps, org, leadId, { ...p, variant, step: base + i + 1 })));
+  return { messages };
+}
+
+/** Everything awaiting a human decision or send, across leads. */
+export async function queue(deps: Deps, org: Org) {
+  const leads = new Map((await allLeads(deps, org)).map((l) => [l.id, l]));
+  const items = (await listDocs(deps.db, org.id, "message", Message))
+    .filter((m) => m.status === "draft" || m.status === "approved")
+    .sort((a, b) => a.leadId.localeCompare(b.leadId) || a.step - b.step)
+    .flatMap((m) => {
+      const l = leads.get(m.leadId);
+      return l ? [{ message: m, lead: toSummary(l) }] : [];
+    });
+  return { items };
+}
+
+/** Refresh calls this when a lead's evidence changes: unsent drafts/approvals become stale and unsendable. */
+export async function markStale(deps: Deps, org: Org, leadId: string, reason: string) {
+  let n = 0;
+  for (const m of await leadMessages(deps, org, leadId)) {
+    if ((m.status === "draft" || m.status === "approved") && m.staleReason !== reason) {
+      await save(deps, org, { ...m, staleReason: reason, updatedAt: iso(deps) });
+      n++;
+    }
+  }
+  return n;
+}
+
+async function createDraft(
+  deps: Deps,
+  org: Org,
+  leadId: string,
+  opts: { channel: "email" | "linkedin"; variant: "A" | "B"; step: number; sendAfterDays: number; followUp: boolean },
+): Promise<Message> {
   const lead = await requireLead(deps, org, leadId);
   if (lead.qualification.status !== "actionable") {
     throw new ContractError("conflict", `Outreach suppressed: ${lead.qualification.label}. ${lead.qualification.reasons[0] ?? ""}`);
   }
   const profile = await getProfile(deps, org);
   if (!profile) throw new ContractError("conflict", "No supplier profile");
-  const existing = (await listDocs(deps.db, org.id, "message", Message)).filter((m) => m.leadId === leadId);
   const person = lead.contacts.find((c) => !c.isTestContact && c.kind === "person");
   const mailbox = lead.contacts.find((c) => !c.isTestContact && c.email);
-  const channel = req.channel ?? "email";
-  const variant = req.variant ?? "A";
+  const addressed = person ?? mailbox;
+  const channel = opts.channel;
+  const variant = opts.variant;
+  const persona = personaFor(addressed?.title ?? null, addressed?.kind ?? "person", channel);
+  const valueProp = VALUE_PROPS[variant];
+  const cutoffText = lead.qualification.decidingDeadline?.at ? formatInZone(lead.qualification.decidingDeadline.at) : "published";
   const draft = await deps.ai.draft({
+    persona,
+    valueProp,
+    trigger: `${lead.contractorName} posted a supplier quote request for ${lead.projectNumber ?? lead.projectTitle} (${lead.ownerName}); supplier cutoff ${cutoffText}`,
+    followUp: opts.followUp,
     supplierName: profile.companyName,
     capabilities: profile.capabilities,
     pastWins: profile.pastWins,
@@ -58,7 +142,7 @@ export async function draftMessage(deps: Deps, org: Org, leadId: string, req: Dr
     cutoffText: lead.qualification.decidingDeadline?.at ? formatInZone(lead.qualification.decidingDeadline.at) : "published",
     variant,
     channel,
-    step: existing.length + 1,
+    step: opts.step,
   });
   const recipient = deps.config.demoInbox;
   const groundedOn = [lead.notice.sourceUrl, ...lead.scopeMatches.map((s) => s.citation.url)].filter((v, i, a) => a.indexOf(v) === i);
@@ -66,7 +150,7 @@ export async function draftMessage(deps: Deps, org: Org, leadId: string, req: Dr
   const m: Message = {
     id: crypto.randomUUID(),
     leadId,
-    step: existing.length + 1,
+    step: opts.step,
     channel,
     variant,
     revision: 1,
@@ -80,11 +164,22 @@ export async function draftMessage(deps: Deps, org: Org, leadId: string, req: Dr
     delivery: null,
     groundedOn,
     securityCheck: securityCheck(draft.body, groundedOn, recipient, deps.config.demoInbox),
+    sendAfterDays: opts.sendAfterDays,
+    valueProp,
+    persona,
+    staleReason: null,
     createdBy: AGENTS.builder,
     updatedAt: iso(deps),
   };
   await save(deps, org, m);
-  await logActivity(deps, deps.db, org, { actor: AGENTS.builder, type: "draft_created", leadId, channel, variant, summary: `Drafted ${channel} step ${m.step} (variant ${variant}): "${m.subject}"` });
+  await logActivity(deps, deps.db, org, {
+    actor: AGENTS.builder,
+    type: "draft_created",
+    leadId,
+    channel,
+    variant,
+    summary: `Drafted ${channel} step ${m.step} (day ${m.sendAfterDays}, variant ${variant}: ${valueProp.split(":")[0]}): "${m.subject}"`,
+  });
   await logActivity(deps, deps.db, org, { actor: AGENTS.security, type: "security_check", leadId, channel, summary: m.securityCheck.findings.join("; ") });
   return m;
 }
@@ -100,6 +195,7 @@ export async function reviseMessage(deps: Deps, org: Org, id: string, req: Revis
     approval: null,
     rejection: null,
     securityCheck: securityCheck(req.body, m.groundedOn, req.recipient, deps.config.demoInbox),
+    staleReason: null,
     createdBy: rep(org),
     updatedAt: iso(deps),
   };
@@ -118,6 +214,7 @@ export async function reviseMessage(deps: Deps, org: Org, id: string, req: Revis
 export async function decideMessage(deps: Deps, org: Org, id: string, req: DecideMessageRequest) {
   const m = await requireMessage(deps, org, id);
   if (m.status !== "draft") throw new ContractError("conflict", `Message is ${m.status}; only drafts can be approved or rejected`);
+  if (m.staleReason && req.decision === "approve") throw new ContractError("conflict", `Draft is stale: ${m.staleReason}. Edit or redraft it.`);
   if (req.revision !== m.revision) throw new ContractError("conflict", `You reviewed revision ${req.revision}; current is ${m.revision}`);
   const hash = approvalHash(m);
   if (req.hash !== hash) throw new ContractError("conflict", "The message changed since you reviewed it; review again");
@@ -141,6 +238,7 @@ export async function sendMessage(deps: Deps, org: Org, id: string, body: { idem
   await idempotent(deps, org, `send:${id}`, async () => {
     const m = await requireMessage(deps, org, id);
     if (m.status === "sent") return true;
+    if (m.staleReason) throw new ContractError("conflict", `Not sent: ${m.staleReason}`);
     if (m.status !== "approved" || !m.approval) {
       throw new ContractError("approval_required", m.status === "rejected" ? "Rejected messages cannot be sent" : "A rep must approve this exact revision before it is sent");
     }
@@ -176,6 +274,7 @@ export async function sendMessage(deps: Deps, org: Org, id: string, body: { idem
         billingEventId: settled.id,
         summary: `${delivery.mode === "live" ? "Sent" : delivery.mode === "manual_handoff" ? "Handed off" : "Sent (simulated)"} "${m.subject}" via ${delivery.provider}`,
       });
+      await graphTouch(deps, org, lead, m, "CONTACTED_VIA", { channel: m.channel, at: delivery.at, mode: delivery.mode });
       if (lead.stage === "matched") await setStage(deps, org, m.leadId, "contacted", rep(org), "approved outreach accepted by provider");
     } catch (e) {
       await release(deps, org, res, `Send failed: ${String(e).slice(0, 120)}`);
@@ -186,6 +285,26 @@ export async function sendMessage(deps: Deps, org: Org, id: string, body: { idem
   });
   void body;
   return requireMessage(deps, org, id);
+}
+
+/** Graph: (Person)-[:CONTACTED_VIA|REPLIED_TO]->(Message)-[:SENT_BY]->(Supplier). */
+async function graphTouch(
+  deps: Deps,
+  org: Org,
+  lead: Awaited<ReturnType<typeof requireLead>>,
+  m: Message,
+  rel: "CONTACTED_VIA" | "REPLIED_TO",
+  props: Record<string, unknown>,
+) {
+  const msgNode = `message:${m.id}`;
+  await upsertNode(deps.db, org, msgNode, "Message", `${m.channel} step ${m.step}: ${m.subject}`.slice(0, 120), {
+    channel: m.channel,
+    variant: m.variant,
+    valueProp: m.valueProp,
+  });
+  await upsertEdge(deps.db, org, msgNode, "SENT_BY", supplierNode(org));
+  const c = lead.contacts.find((x) => !x.isTestContact && x.kind === "person") ?? lead.contacts.find((x) => !x.isTestContact);
+  if (c) await upsertEdge(deps.db, org, `person:${slug(c.email ?? c.name ?? "contact")}`, rel, msgNode, props);
 }
 
 /** Inbound reply (webhook or labeled simulation). Deduped by provider id; advances only the matching lead. */
@@ -203,6 +322,7 @@ export async function recordReply(deps: Deps, org: Org, messageId: string, reply
       summary: `${reply.simulated ? "[Simulated] " : ""}Reply from ${reply.from}: "${reply.text.slice(0, 180)}"`,
     });
     const lead = await requireLead(deps, org, m.leadId);
+    await graphTouch(deps, org, lead, m, "REPLIED_TO", { at: iso(deps), simulated: reply.simulated });
     if (lead.stage === "contacted" || lead.stage === "matched") await setStage(deps, org, m.leadId, "replied", contact, "inbound reply matched to message");
     return true;
   });

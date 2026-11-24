@@ -271,7 +271,7 @@ async function writeSupplierGraph(deps: Deps, org: Org, profile: SupplierProfile
   const scopes = await deps.db.query<{ id: string; name: string }>("select id, name from nodes where org_id = $1 and label = 'Scope'", [org.id]);
   for (const cap of profile.capabilities) {
     const svc = `service:${org.id}:${slug(cap)}`;
-    await upsertNode(deps.db, org, svc, "Service", cap, {});
+    await upsertNode(deps.db, org, svc, "Product", cap, {});
     await upsertEdge(deps.db, org, sup, "OFFERS", svc);
     for (const s of scopes) {
       const m = matchScopes([cap], [s.name])[0];

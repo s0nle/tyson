@@ -25,6 +25,8 @@ export const ActivityType = z.enum([
   "stage_changed",
   "milestone",
   "credits_blocked",
+  "lead_requalified",
+  "company_enriched",
 ]);
 export type ActivityType = z.infer<typeof ActivityType>;
 

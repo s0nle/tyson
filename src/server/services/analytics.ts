@@ -43,7 +43,8 @@ export async function analytics(deps: Deps, org: Org, q: { segment?: string; tie
     (["email", "linkedin"] as const).map((channel) => {
       const sent = messages.filter((m) => m.variant === variant && m.channel === channel && m.status === "sent");
       const replied = sent.filter((m) => repliedLeads.has(m.leadId)).length;
-      return { variant, channel, sent: sent.length, replied, rate: sent.length ? replied / sent.length : null };
+      const valueProp = (sent[0] ?? messages.find((m) => m.variant === variant))?.valueProp.split(":")[0] ?? (variant === "A" ? "Scope match" : "Local track record");
+      return { variant, valueProp, channel, sent: sent.length, replied, rate: sent.length ? replied / sent.length : null };
     }),
   );
   return {

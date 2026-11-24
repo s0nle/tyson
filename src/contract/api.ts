@@ -6,6 +6,9 @@ import {
   Analytics,
   AnalyticsQuery,
   AgentNoteRequest,
+  LeadSummary,
+  RefreshRequest,
+  RefreshResponse,
   EvaluateLeadRequest,
   GraphView,
   LeadDetail,
@@ -19,6 +22,8 @@ import {
 import {
   DecideMessageRequest,
   DraftRequest,
+  SequenceRequest,
+  SequenceResponse,
   Message,
   ReviseMessageRequest,
   SendMessageRequest,
@@ -78,6 +83,14 @@ export const endpoints = {
   }),
   moveLead: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/stage", body: MoveLeadRequest, response: LeadDetail }),
   agentNote: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/agent-notes", body: AgentNoteRequest, response: LeadDetail }),
+  refreshLeads: endpoint({ method: "POST", path: "/api/v1/leads/refresh", body: RefreshRequest, response: RefreshResponse }),
+  enrichCompany: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/enrich-company", body: z.object({}).default({}), response: LeadDetail }),
+  draftSequence: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/sequence", body: SequenceRequest, response: SequenceResponse }),
+  getQueue: endpoint({
+    method: "GET",
+    path: "/api/v1/queue",
+    response: z.object({ items: z.array(z.object({ message: Message, lead: LeadSummary })) }),
+  }),
   draftMessage: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/drafts", body: DraftRequest, response: Message }),
 
   reviseMessage: endpoint({ method: "POST", path: "/api/v1/messages/:messageId/revise", body: ReviseMessageRequest, response: Message }),

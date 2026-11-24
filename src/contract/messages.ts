@@ -47,6 +47,14 @@ export const Message = z.object({
   groundedOn: z.array(z.string()),
   /** Security reviewer result for links / destination / attachments. */
   securityCheck: z.object({ passed: z.boolean(), findings: z.array(z.string()) }),
+  /** Days after step 1 this touch should go out (sequence cadence). */
+  sendAfterDays: z.int().min(0).max(30).default(0),
+  /** The value proposition this variant tests, e.g. "Scope match" vs "Local track record". */
+  valueProp: z.string().default("Scope match"),
+  /** Persona rules applied: tone, max length, CTA. */
+  persona: z.string().default(""),
+  /** Set when the lead's evidence changed after drafting (e.g. window closed, notice amended). Stale messages cannot be sent. */
+  staleReason: z.string().nullable().default(null),
   createdBy: Actor,
   updatedAt: Timestamp,
 });
@@ -81,6 +89,10 @@ export const DecideMessageRequest = z
     }
   });
 export type DecideMessageRequest = z.input<typeof DecideMessageRequest>;
+
+export const SequenceRequest = z.object({ variant: z.enum(["A", "B"]).default("A") });
+export type SequenceRequest = z.input<typeof SequenceRequest>;
+export const SequenceResponse = z.object({ messages: z.array(Message) });
 
 export const SendMessageRequest = z.object({ idempotencyKey: Id });
 export type SendMessageRequest = z.input<typeof SendMessageRequest>;

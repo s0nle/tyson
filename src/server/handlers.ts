@@ -4,8 +4,8 @@ import { analytics } from "./services/analytics";
 import { ledger, meFor, resetOrg, totals } from "./services/base";
 import { getRun, listCompetitors, listRuns, startRun } from "./services/discovery";
 import { wholeGraph } from "./services/graph";
-import { agentNote, allLeads, evaluateLead, leadDetail, moveLead, pipeline, toSummary, verifyContact } from "./services/leads";
-import { decideMessage, draftMessage, recordReply, reviseMessage, sendMessage } from "./services/messages";
+import { agentNote, allLeads, enrichCompany, evaluateLead, maybeRefresh, refreshLeads, leadDetail, moveLead, pipeline, toSummary, verifyContact } from "./services/leads";
+import { decideMessage, draftMessage, draftSequence, queue, recordReply, reviseMessage, sendMessage } from "./services/messages";
 import { approveProfile, getProfile, inferProfile, updateProfile } from "./services/profile";
 
 const p = (params: Record<string, string>, k: string) => {
@@ -45,7 +45,9 @@ export const handlers: Handlers = {
     return getRun(deps, await org(), p(params, "runId"));
   },
   async listLeads({ deps, org, query }) {
-    let leads = await allLeads(deps, await org());
+    const o = await org();
+    await maybeRefresh(deps, o);
+    let leads = await allLeads(deps, o);
     if (query.status) leads = leads.filter((l) => l.qualification.status === query.status);
     if (query.stage) leads = leads.filter((l) => l.stage === query.stage);
     if (query.tier) leads = leads.filter((l) => l.score.tier === query.tier);
@@ -67,6 +69,18 @@ export const handlers: Handlers = {
   async agentNote({ deps, org, params, body }) {
     return agentNote(deps, await org(), p(params, "leadId"), body);
   },
+  async refreshLeads({ deps, org, body }) {
+    return refreshLeads(deps, await org(), body.asOf);
+  },
+  async enrichCompany({ deps, org, params }) {
+    return enrichCompany(deps, await org(), p(params, "leadId"));
+  },
+  async draftSequence({ deps, org, params, body }) {
+    return draftSequence(deps, await org(), p(params, "leadId"), body);
+  },
+  async getQueue({ deps, org }) {
+    return queue(deps, await org());
+  },
   async draftMessage({ deps, org, params, body }) {
     return draftMessage(deps, await org(), p(params, "leadId"), body);
   },
@@ -84,7 +98,9 @@ export const handlers: Handlers = {
     return recordReply(deps, o, p(params, "messageId"), { from: "Test inbox (simulated contractor)", text: body.body, providerId: `sim_${p(params, "messageId")}`, simulated: true });
   },
   async getPipeline({ deps, org }) {
-    return pipeline(deps, await org());
+    const o = await org();
+    await maybeRefresh(deps, o);
+    return pipeline(deps, o);
   },
   async getAnalytics({ deps, org, query }) {
     return analytics(deps, await org(), query);

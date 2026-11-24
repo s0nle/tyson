@@ -79,7 +79,8 @@ Retrieved at ${retrievedAt}.`,
         `Write a short first-touch ${ctx.channel === "email" ? "email (<= 110 words)" : "LinkedIn connection note (<= 280 characters)"} from a specialty supplier to a contractor's estimating contact.
 The single ask is: share the applicable electrical drawings and retrofit specifications so the supplier can determine what it can quote.
 Ground every claim in the given scopes and the contractor's own request; never mention pricing, delivery promises or the utility's budget.
-Variant ${ctx.variant}: ${ctx.variant === "A" ? "lead with the scope you saw in their request" : "lead with the supplier's relevant capability/past wins"}.
+Value proposition to lead with: ${ctx.valueProp}. Persona rules (follow exactly): ${ctx.persona}.
+Weave in this trigger signal naturally: ${ctx.trigger}.${ctx.followUp ? " This is a short follow-up to an earlier email; reference it in one clause and keep it under 70 words." : ""}
 Plain text, no markdown, sign off with the supplier name.`,
         JSON.stringify(ctx),
       ),
@@ -131,6 +132,28 @@ export function hunterEnrich(apiKey: string): EnrichProvider {
       const status = d.status === "valid" || (d.status === "webmail" && d.result === "deliverable") ? "valid"
         : d.status === "accept_all" ? "accept_all" : d.status === "invalid" ? "invalid" : "unknown";
       return { status, score: d.score ?? null, note: `Hunter: status=${d.status}, result=${d.result}, mx=${d.mx_records}` };
+    },
+    async findCompany(domain) {
+      const res = await fetch(`https://api.hunter.io/v2/companies/find?domain=${encodeURIComponent(domain)}&api_key=${apiKey}`);
+      const none = { found: false, legalName: null, headquarters: null, industry: null, naics: null, employees: null, linkedinUrl: null };
+      if (!res.ok) return none;
+      const d = ((await res.json()) as { data?: Record<string, any> }).data;
+      if (!d) return none;
+      return {
+        found: true,
+        legalName: d.legalName ?? d.name ?? null,
+        headquarters: d.location ?? null,
+        industry: d.category?.industry ?? null,
+        naics: d.category?.naicsCode ?? null,
+        employees: d.metrics?.employees ?? null,
+        linkedinUrl: d.linkedin?.handle ? `https://www.linkedin.com/${d.linkedin.handle}` : null,
+      };
+    },
+    async findPerson(email) {
+      const res = await fetch(`https://api.hunter.io/v2/people/find?email=${encodeURIComponent(email)}&api_key=${apiKey}`);
+      if (!res.ok) return { linkedinUrl: null };
+      const d = ((await res.json()) as { data?: Record<string, any> }).data;
+      return { linkedinUrl: d?.linkedin?.handle ? `https://www.linkedin.com/in/${d.linkedin.handle}` : null };
     },
   };
   return p;

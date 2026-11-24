@@ -1,9 +1,10 @@
 "use client";
 import type { GraphView } from "@/contract";
 
-const ORDER = ["Service", "Scope", "Notice", "Company", "Person", "Deadline", "Project", "Signal"] as const;
+const ORDER = ["Product", "Scope", "Notice", "Company", "Person", "Message", "Deadline", "Project", "Signal"] as const;
 const TONE: Record<string, string> = {
-  Service: "border-spec text-spec",
+  Product: "border-spec text-spec",
+  Message: "border-agent text-agent",
   Scope: "border-spec text-ink",
   Notice: "border-ink-3",
   Company: "border-ink",

@@ -28,6 +28,7 @@ import { getDoc, listDocs, putDoc } from "../db";
 import type { Deps } from "../deps";
 import {
   AGENTS,
+  SYSTEM,
   iso,
   idempotent,
   ledger,
@@ -39,7 +40,7 @@ import {
   reserve,
   settle,
 } from "./base";
-import { matchCandidates, subgraphForNotice } from "./graph";
+import { matchCandidates, subgraphForNotice, upsertEdge, upsertNode } from "./graph";
 import { getProfile } from "./profile";
 import { LeadRec, NoticeRec, SourceRec, stableId } from "./records";
 
@@ -249,6 +250,8 @@ export async function buildLead(
     updatedAt: iso(deps),
     project,
     contractor: { id: notice.contractorId, name: ex.bidder, domain: ex.bidderDomain },
+    company: existing?.company ?? null,
+    warmPaths: [],
     notice: { id: notice.id, title: src.title, version: notice.version, sourceUrl: src.url, isCurrent: notice.isCurrent, excerpt: ex.scopeExcerpt },
     scopeMatches,
     deadlines,
@@ -296,6 +299,14 @@ export async function requireLead(deps: Deps, org: Org, leadId: string) {
 
 export async function saveLead(deps: Deps, org: Org, l: LeadRec) {
   await putDoc(deps.db, org.id, "lead", l.id, l, iso(deps));
+  // (Contractor)-[:MATCHED_TO]->(Supplier) carries the current decision
+  await upsertEdge(deps.db, org, `company:${l.contractor.id}`, "MATCHED_TO", supplierNode(org), {
+    leadId: l.id,
+    status: l.qualification.status,
+    score: l.score.total,
+    tier: l.score.tier,
+    asOf: l.qualification.asOf,
+  });
 }
 
 export async function leadDetail(deps: Deps, org: Org, leadId: string): Promise<LeadDetail> {
@@ -370,6 +381,7 @@ export async function verifyContact(deps: Deps, org: Org, leadId: string, contac
     }
     const r = await deps.enrich.verifyEmail(email).catch((err) => ({ status: "unknown" as const, score: null, note: String(err) }));
     const billable = r.status === "valid";
+    const person = billable && !contact.isTestContact ? await deps.enrich.findPerson(email).catch(() => ({ linkedinUrl: null })) : { linkedinUrl: null };
     const entry = billable ? await settle(deps, org, res, `Verified ${email}`) : null;
     if (!billable) await release(deps, org, res, `Not billable: ${r.status}`);
     await updateContact(deps, org, leadId, contactId, {
@@ -378,7 +390,7 @@ export async function verifyContact(deps: Deps, org: Org, leadId: string, contac
       checkedAt: iso(deps),
       score: r.score,
       note: r.note,
-    });
+    }, person.linkedinUrl);
     await logActivity(deps, deps.db, org, {
       actor: rep(org),
       type: "contact_verified",
@@ -391,9 +403,16 @@ export async function verifyContact(deps: Deps, org: Org, leadId: string, contac
   return leadDetail(deps, org, leadId);
 }
 
-async function updateContact(deps: Deps, org: Org, leadId: string, contactId: string, v: Contact["verification"]) {
+async function updateContact(
+  deps: Deps,
+  org: Org,
+  leadId: string,
+  contactId: string,
+  v: Contact["verification"],
+  linkedinUrl: string | null = null,
+) {
   const lead = await requireLead(deps, org, leadId);
-  lead.contacts = lead.contacts.map((c) => (c.id === contactId ? { ...c, verification: v } : c));
+  lead.contacts = lead.contacts.map((c) => (c.id === contactId ? { ...c, verification: v, linkedinUrl: linkedinUrl ?? c.linkedinUrl } : c));
   await saveLead(deps, org, lead);
 }
 
@@ -452,4 +471,93 @@ export async function agentNote(
   return leadDetail(deps, org, leadId);
 }
 
+/** Free firmographic lookup for the contractor: verified domain, HQ, industry, size, LinkedIn page. */
+export async function enrichCompany(deps: Deps, org: Org, leadId: string) {
+  const lead = await requireLead(deps, org, leadId);
+  const domain = lead.contractor.domain;
+  if (!domain) throw new ContractError("bad_request", "No company domain published for this contractor");
+  const c = await deps.enrich.findCompany(domain);
+  lead.company = {
+    domain,
+    domainVerified: c.found,
+    legalName: c.legalName,
+    headquarters: c.headquarters,
+    industry: c.industry,
+    naics: c.naics,
+    employees: c.employees,
+    linkedinUrl: c.linkedinUrl,
+    provider: deps.enrich.kind === "live" ? "Hunter.io company lookup" : "Hunter.io (fake)",
+    checkedAt: iso(deps),
+  };
+  if (c.employees) {
+    const n = Number(c.employees.split("-")[1] ?? c.employees.replace(/\D/g, ""));
+    if (Number.isFinite(n) && n > 0) lead.companyTier = n >= 1000 ? "enterprise" : n >= 50 ? "mid_market" : "small";
+  }
+  await saveLead(deps, org, lead);
+  await upsertNode(deps.db, org, `company:${lead.contractor.id}`, "Company", lead.contractorName, {
+    role: "bidder",
+    domain,
+    headquarters: c.headquarters,
+    industry: c.industry,
+    employees: c.employees,
+    linkedin: c.linkedinUrl,
+  });
+  await logActivity(deps, deps.db, org, {
+    actor: rep(org),
+    type: "company_enriched",
+    leadId,
+    summary: c.found
+      ? `${domain}: ${c.headquarters ?? "HQ unknown"} · ${c.industry ?? "industry unknown"} · ${c.employees ?? "?"} employees`
+      : `${domain}: no company record found`,
+  });
+  return leadDetail(deps, org, leadId);
+}
+
+/**
+ * Continuous re-qualification: re-run every lead against the clock and its current graph evidence.
+ * Status changes are logged; unsent drafts on a lead that is no longer actionable (or whose notice changed) go stale.
+ */
+export async function refreshLeads(deps: Deps, org: Org, asOfInput?: string) {
+  const { markStale } = await import("./messages");
+  const asOf = asOfInput ? toZonedIso(asOfInput) : iso(deps);
+  const profile = await getProfile(deps, org);
+  const leads = await allLeads(deps, org);
+  type Status = LeadRec["qualification"]["status"];
+  const changed: { leadId: string; contractorName: string; from: Status; to: Status; reason: string }[] = [];
+  let staleMessages = 0;
+  if (!profile) return { asOf, checked: 0, changed, staleMessages };
+  for (const lead of leads) {
+    const notice = await getDoc(deps.db, org.id, "notice", lead.noticeId, NoticeRec);
+    if (!notice) continue;
+    const next = await buildLead(deps, org, profile, notice, asOf);
+    if (!next) continue;
+    const from = lead.qualification.status;
+    const to = next.qualification.status;
+    const noticeChanged = next.notice.version !== lead.notice.version;
+    if (from !== to || noticeChanged) {
+      const reason = noticeChanged
+        ? `Notice amended (v${lead.notice.version} → v${next.notice.version})`
+        : (next.qualification.reasons[0] ?? next.qualification.label);
+      changed.push({ leadId: lead.id, contractorName: lead.contractorName, from, to, reason });
+      await logActivity(deps, deps.db, org, { actor: SYSTEM, type: "lead_requalified", leadId: lead.id, summary: `${from} → ${to}: ${reason}` });
+      if (to !== "actionable" || noticeChanged) staleMessages += await markStale(deps, org, lead.id, reason);
+    }
+    await saveLead(deps, org, next);
+  }
+  await putDoc(deps.db, org.id, "meta", org.id, { lastRefresh: iso(deps) }, iso(deps));
+  return { asOf, checked: leads.length, changed, staleMessages };
+}
+
+/** Lazy scheduling: ordinary reads trigger a refresh at most once a minute (cron is only a backstop). */
+export async function maybeRefresh(deps: Deps, org: Org) {
+  const rows = await deps.db.query<{ data: { lastRefresh?: string } }>(
+    "select data from docs where org_id = $1 and kind = $2 and id = $3",
+    [org.id, "meta", org.id],
+  );
+  const last = rows[0]?.data?.lastRefresh;
+  if (last && deps.now().getTime() - new Date(last).getTime() < 60_000) return;
+  await refreshLeads(deps, org).catch((e) => deps.log.error(e));
+}
+
 export { AGENTS };
+
