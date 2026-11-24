@@ -10,6 +10,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [company, setCompany] = useState("");
   const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
   const [onboarding, setOnboarding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -19,6 +20,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       if (draft) {
         setCompany(draft.companyName || "");
         setDescription(draft.description || "");
+        setLocation(draft.companyLocation || "");
       }
     } catch {}
     setReady(true);
@@ -34,11 +36,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
         JSON.stringify({
           companyName: company.trim(),
           description: description.trim(),
+          companyLocation: location.trim(),
         }),
       );
       setUser(getUser() || `business-${crypto.randomUUID()}`);
       await api("inferProfile", {
-        body: { companyName: company.trim(), description: description.trim() },
+        body: { companyName: company.trim(), description: description.trim(), companyLocation: location.trim() },
       });
       refreshAll();
       setOnboarding(false);
@@ -58,7 +61,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return (
       <main className="welcome">
         <div className="welcome-form">
-          <Brand />
+          <Brand heading />
           <form onSubmit={start} aria-label="Business information">
             <label className="form-label" htmlFor="onboarding-company">
               Company Name
@@ -80,7 +83,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <textarea
               id="onboarding-description"
               className="field min-h-32"
-              placeholder="What you sell, who you help, and where you work…"
+              placeholder="What you sell and who you help…"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               minLength={10}
@@ -88,11 +91,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
               required
               disabled={busy}
             />
+            <label className="form-label mt-5" htmlFor="onboarding-location">
+              Where is your company located?
+            </label>
+            <input
+              id="onboarding-location"
+              className="field"
+              placeholder="City and state, or ZIP code"
+              autoComplete="address-level2"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              minLength={2}
+              maxLength={120}
+              required
+              disabled={busy}
+            />
             <button
               type="submit"
               className="btn btn-primary"
               disabled={
-                busy || !company.trim() || description.trim().length < 10
+                busy || !company.trim() || description.trim().length < 10 || location.trim().length < 2
               }
             >
               <Icon name="chevron" size={16} />

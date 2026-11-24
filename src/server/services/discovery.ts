@@ -317,7 +317,7 @@ async function liveDiscovery(
 ): Promise<NoticeRec[]> {
   const region = profile.serviceArea
     ? `within ${profile.serviceArea.radiusMiles} miles of ${profile.serviceArea.label}`
-    : (profile.regions[0] ?? "California");
+    : (profile.companyLocation || profile.regions[0] || "California");
   // Built from the supplier's own services and region (no industry baked in). One query targets the
   // sub-bid classifieds where contractors publish supplier/sub quote requests.
   // Planner (OpenAI) writes the searches from the approved profile; deterministic fallback if the model call fails.
@@ -326,7 +326,7 @@ async function liveDiscovery(
     companyName: profile.companyName,
     description: profile.description,
     capabilities: profile.capabilities,
-    regions: profile.serviceArea ? [region, ...profile.regions] : profile.regions,
+    regions: profile.serviceArea || profile.companyLocation ? [region] : profile.regions,
     buyerRoles: icp("buyer_roles"),
     signals: icp("buying_signals"),
   };
@@ -403,7 +403,8 @@ async function competitorDiscovery(
   profile: SupplierProfile,
   step: (a: Actor, k: RunStep["kind"], m: string, u?: string | null) => Promise<void>,
 ) {
-  const q = `${profile.capabilities[0] ?? "specialty contractor"} company ${profile.regions[0] ?? "California"}`;
+  const location = profile.serviceArea?.label || profile.companyLocation || profile.regions[0] || "California";
+  const q = `${profile.capabilities[0] ?? "specialty contractor"} company ${location}`;
   await step(AGENTS.builder, "search", `Competitor scan: ${q}`);
   const results = await deps.search.search(q, 6);
   const comps = await deps.ai.summarizeCompetitors({ capabilities: profile.capabilities, pages: results.map((r) => ({ url: r.url, title: r.title, text: r.content })) });

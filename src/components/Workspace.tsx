@@ -474,7 +474,9 @@ export function Workspace() {
                     Search settings
                   </summary>
                   <div className="search-settings-panel">
-                    <ServiceAreaMap value={p?.serviceArea ?? null} onSaved={() => void profile.reload()} />
+                    {profile.data && (
+                      <ServiceAreaMap value={p?.serviceArea ?? null} companyLocation={p?.companyLocation ?? ""} onSaved={() => void profile.reload()} />
+                    )}
                     <label>
                       <span className="form-label">Sources</span>
                       <select

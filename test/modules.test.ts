@@ -104,7 +104,11 @@ describe("service area (map center + radius)", () => {
   it("keeps projects inside the radius and rules out the rest with the distance", async () => {
     const b = await startBackend();
     const rep = b.as("radius");
-    await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION } });
+    const profile = await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION, companyLocation: "Oakland, CA" } });
+    expect(profile.serviceArea).toMatchObject({ label: "Oakland, CA", radiusMiles: 25 });
+    const revised = await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION } });
+    expect(revised.serviceArea).toEqual(profile.serviceArea);
+    expect(revised.companyLocation).toBe("Oakland, CA");
     await rep("approveProfile");
     const found = await rep("geoSearch", { query: { q: "Oakland" } });
     const oak = found.results[0];

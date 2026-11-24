@@ -68,6 +68,7 @@ export function BusinessProfile({
                 JSON.stringify({
                   companyName: company.trim(),
                   description: description.trim(),
+                  companyLocation: profile?.companyLocation ?? "",
                 }),
               );
             } catch {}

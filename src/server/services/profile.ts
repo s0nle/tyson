@@ -16,12 +16,24 @@ export async function requireApprovedProfile(deps: Deps, org: Org) {
 
 export async function inferProfile(deps: Deps, org: Org, req: InferProfileRequest) {
   const companyName = req.companyName ?? "";
-  const inf = await deps.ai.inferIcp({ companyName, description: req.description });
   const prev = await getProfile(deps, org);
+  const companyLocation = req.companyLocation ?? prev?.companyLocation ?? "";
+  let serviceArea = prev?.serviceArea ?? null;
+  const changedLocation = req.companyLocation !== undefined && companyLocation !== prev?.companyLocation;
+  const [inf, places] = await Promise.all([
+    deps.ai.inferIcp({ companyName, description: req.description }),
+    changedLocation ? deps.geo.search(companyLocation).catch(() => []) : [],
+  ]);
+  if (changedLocation) {
+    // Ambiguous or unavailable coordinates still leave a usable city for search.
+    serviceArea = places.length === 1 ? { ...places[0]!, radiusMiles: 25 } : null;
+  }
   const profile = SupplierProfile.parse({
     id: org.id,
     orgId: org.id,
     companyName: companyName || inf.companyName,
+    companyLocation,
+    serviceArea,
     description: req.description,
     capabilities: inf.capabilities,
     regions: inf.regions,

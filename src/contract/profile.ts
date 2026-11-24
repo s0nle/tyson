@@ -62,6 +62,7 @@ export const SupplierProfile = z.object({
   id: Id,
   orgId: Id,
   companyName: z.string(),
+  companyLocation: z.string().max(120).default(""),
   /** The supplier's own plain-language description. */
   description: z.string(),
   /** Approved services the supplier can quote; drives scope matching. */
@@ -86,6 +87,7 @@ export const ProfileResponse = z.object({ profile: SupplierProfile.nullable() })
 
 export const InferProfileRequest = z.object({
   companyName: z.string().max(120).default(""),
+  companyLocation: z.string().trim().min(2).max(120).optional(),
   description: z.string().min(10, "Describe what you sell in at least a sentence").max(4000),
 });
 export type InferProfileRequest = z.input<typeof InferProfileRequest>;

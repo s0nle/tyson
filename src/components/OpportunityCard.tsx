@@ -245,7 +245,7 @@ function Outreach({ leadId }: { leadId: string }) {
             </div>
           )}
           <div className="message-stack">
-            {lead.messages.map((m) => (
+            {lead.messages.slice(0, 1).map((m) => (
               <MessageCard
                 key={m.id}
                 m={m}
@@ -253,6 +253,16 @@ function Outreach({ leadId }: { leadId: string }) {
                 disabled={busy || !actionable}
               />
             ))}
+            {lead.messages.length > 1 && (
+              <details className="alternate-drafts">
+                <summary>Other drafts ({lead.messages.length - 1})</summary>
+                <div className="message-stack">
+                  {lead.messages.slice(1).map((m) => (
+                    <MessageCard key={m.id} m={m} act={act} disabled={busy || !actionable} />
+                  ))}
+                </div>
+              </details>
+            )}
             {lead.messages.length === 0 && !drafting && (
               <div className="draft-placeholder">
                 <Icon name="mail" size={25} />

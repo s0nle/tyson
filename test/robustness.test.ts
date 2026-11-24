@@ -44,12 +44,15 @@ describe("live discovery with malformed dates", () => {
 
   it("finishes the run and sends the bad-date notice to review", async () => {
     const rep = b.as("robust");
-    await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION } });
+    // The fake geocoder has no Stockton entry. Discovery still uses the city supplied at intake.
+    const profile = await rep("inferProfile", { body: { description: DEFAULT_DESCRIPTION, companyLocation: "Stockton, CA" } });
+    expect(profile.serviceArea).toBeNull();
     await rep("approveProfile");
     const run = await rep("startRun", { body: { mode: "live" } });
     const done = await rep("getRun", { params: { runId: run.id } });
     expect(done.error).toBeNull();
     expect(done.status).toBe("done");
+    expect(done.steps.some((step) => step.kind === "search" && step.message.includes("Stockton, CA"))).toBe(true);
     const acme = (await rep("listLeads")).leads.find((l) => l.contractorName === "Acme Builders");
     expect(acme?.qualification.status).toBe("needs_review");
     expect(acme?.qualification.label).toBe("Deadline unknown");

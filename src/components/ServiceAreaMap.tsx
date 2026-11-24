@@ -9,20 +9,25 @@ const DEFAULT = { label: "Oakland, CA", lat: 37.8044, lng: -122.2712 };
 const MILE = 1609.344;
 
 /** Marketplace-style service area: pick a center, drag the radius, save. Leads outside it are ruled out. */
-export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; onSaved: () => void }) {
+export function ServiceAreaMap({ value, companyLocation, onSaved }: { value: ServiceArea | null; companyLocation: string; onSaved: () => void }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const circle = useRef<Circle | null>(null);
   const marker = useRef<Marker | null>(null);
-  const [center, setCenter] = useState(value ? { label: value.label, lat: value.lat, lng: value.lng } : DEFAULT);
+  const [center, setCenter] = useState<Pick<ServiceArea, "label" | "lat" | "lng"> | null>(
+    value ?? (companyLocation ? null : DEFAULT),
+  );
+  const hasCenter = center !== null;
   const [radius, setRadius] = useState(value?.radiusMiles ?? 25);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(value?.label || companyLocation);
   const [results, setResults] = useState<{ label: string; lat: number; lng: number }[]>([]);
   const [status, setStatus] = useState("");
 
   // create the map once (Leaflet touches window, so load it on the client only)
   useEffect(() => {
     let cancelled = false;
+    let sizeObserver: ResizeObserver | undefined;
+    if (!center) return;
     void import("leaflet").then((L) => {
       if (cancelled || !el.current || map.current) return;
       const m = L.map(el.current, { zoomControl: true, attributionControl: true }).setView([center.lat, center.lng], 9);
@@ -35,20 +40,27 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
         icon: L.divIcon({ className: "area-pin", html: "<span></span>", iconSize: [18, 18] }),
       }).addTo(m);
       m.fitBounds(circle.current.getBounds(), { padding: [12, 12] });
-      m.on("click", (e) => setCenter({ label: `${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)}`, lat: e.latlng.lat, lng: e.latlng.lng }));
+      m.on("click", (e) => {
+        const label = `${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)}`;
+        setCenter({ label, lat: e.latlng.lat, lng: e.latlng.lng });
+        setQ(label);
+      });
       map.current = m;
+      sizeObserver = new ResizeObserver(() => m.invalidateSize());
+      sizeObserver.observe(el.current);
     });
     return () => {
       cancelled = true;
+      sizeObserver?.disconnect();
       map.current?.remove();
       map.current = null;
     };
     // biome-ignore lint/correctness/useExhaustiveDependencies: map is created once
-  }, []);
+  }, [hasCenter]);
 
   // keep the circle in sync with center + radius
   useEffect(() => {
-    if (!map.current || !circle.current || !marker.current) return;
+    if (!center || !map.current || !circle.current || !marker.current) return;
     circle.current.setLatLng([center.lat, center.lng]);
     circle.current.setRadius(radius * MILE);
     marker.current.setLatLng([center.lat, center.lng]);
@@ -59,7 +71,7 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
     if (q.trim().length < 2) return;
     setStatus("Searching…");
     try {
-      const r = await api("geoSearch", { query: { q } });
+      const r = await api("geoSearch", { query: { q: q.trim() } });
       setResults(r.results);
       setStatus(r.results.length ? "" : "No places found. Try a city and state.");
     } catch (e) {
@@ -71,6 +83,10 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
     setStatus("Saving…");
     try {
       await api("updateProfile", { body: { serviceArea: area } });
+      if (!area) {
+        setQ(companyLocation);
+        setCenter(companyLocation ? null : DEFAULT);
+      }
       await api("refreshLeads", { body: {} });
       onSaved();
       refreshAll();
@@ -82,7 +98,7 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
 
   return (
     <div className="service-area">
-      <span className="form-label">Service area</span>
+      <label htmlFor="search-location" className="form-label">Search location</label>
       <form
         className="area-search"
         onSubmit={(e) => {
@@ -90,7 +106,7 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
           void find();
         }}
       >
-        <input className="field" value={q} onChange={(e) => setQ(e.target.value)} placeholder="City, county or ZIP" aria-label="Find a location" />
+        <input id="search-location" className="field" value={q} onChange={(e) => setQ(e.target.value)} placeholder="City, county or ZIP" maxLength={120} />
         <button type="submit" className="btn btn-small">
           Find
         </button>
@@ -104,7 +120,7 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
                 onClick={() => {
                   setCenter(r);
                   setResults([]);
-                  setQ("");
+                  setQ(r.label);
                 }}
               >
                 {r.label}
@@ -113,25 +129,30 @@ export function ServiceAreaMap({ value, onSaved }: { value: ServiceArea | null; 
           ))}
         </ul>
       )}
-      <div ref={el} className="area-map" role="img" aria-label={`Map: ${radius} mile radius around ${center.label}`} />
-      <label className="area-radius">
-        <span>
-          Within <strong>{radius} mi</strong> of {center.label}
-        </span>
-        <input type="range" min={5} max={150} step={5} value={radius} onChange={(e) => setRadius(Number(e.target.value))} />
-      </label>
-      <div className="flex gap-2 flex-wrap">
-        <button type="button" className="btn btn-primary btn-small" onClick={() => save({ ...center, radiusMiles: radius })}>
-          Save service area
-        </button>
-        {value && (
-          <button type="button" className="btn btn-small" onClick={() => save(null)}>
-            Clear
-          </button>
-        )}
-      </div>
-      {status && <p className="field-help">{status}</p>}
-      <p className="field-help">Click the map to move the center. Distances use each project's published location.</p>
+      {!center && <p className="field-help">Searching near {companyLocation}. Find a map location to set a mileage limit.</p>}
+      {center && (
+        <>
+          <div ref={el} className="area-map" role="img" aria-label={`Map: ${radius} mile radius around ${center.label}`} />
+          <label className="area-radius">
+            <span>
+              Within <strong>{radius} mi</strong> of {center.label}
+            </span>
+            <input type="range" min={5} max={150} step={5} value={radius} onChange={(e) => setRadius(Number(e.target.value))} />
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" className="btn btn-primary btn-small" onClick={() => save({ ...center, radiusMiles: radius })}>
+              Save service area
+            </button>
+            {value && (
+              <button type="button" className="btn btn-small" onClick={() => save(null)}>
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="field-help">Click the map to move the center. Distances use each project's published location.</p>
+        </>
+      )}
+      {status && <p className="field-help" role="status">{status}</p>}
     </div>
   );
 }

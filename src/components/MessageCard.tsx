@@ -15,10 +15,12 @@ export function MessageCard({
   m,
   act,
   disabled = false,
+  queueMode = false,
 }: {
   m: Message;
   act: (fn: () => Promise<unknown>, ok?: string) => Promise<boolean>;
   disabled?: boolean;
+  queueMode?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [subject, setSubject] = useState(m.subject);
@@ -99,7 +101,9 @@ export function MessageCard({
             <div className="flex gap-2">
               <button
                 type="button"
-                className="btn btn-primary"
+                className={queueMode ? "btn queue-approve" : "btn btn-primary"}
+                title="Approve message"
+                aria-label="Approve message"
                 disabled={busy || !subject.trim() || !body.trim()}
                 onClick={async () => {
                   if (
@@ -216,15 +220,17 @@ export function MessageCard({
                 }
               >
                 <Icon name="check" size={17} />
-                Approve message
+                {!queueMode && "Approve message"}
               </button>
               <button
                 type="button"
-                className="btn"
+                className={queueMode ? "btn queue-reject" : "btn"}
+                title="Reject message"
+                aria-label="Reject message"
                 disabled={busy}
                 onClick={() => setRejecting((v) => !v)}
               >
-                Reject
+                {queueMode ? <Icon name="close" size={24} /> : "Reject"}
               </button>
             </>
           )}

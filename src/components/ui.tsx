@@ -112,13 +112,15 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     </svg>
   );
 }
-export function Brand() {
+export function Brand({ heading = false }: { heading?: boolean }) {
+  const Title = heading ? "h1" : "span";
   return (
     <div className="brand">
       <img className="brand-mark" src="/tyson-radar.svg" alt="" width="40" height="40" />
-      <span>
-        Tyson<span className="brand-sub">Your personal sales agent</span>
-      </span>
+      <div>
+        <Title>Tyson</Title>
+        <span className="brand-sub">Your Personal Sales Agent</span>
+      </div>
     </div>
   );
 }

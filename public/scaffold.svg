@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="480" viewBox="0 0 400 480" fill="none" stroke="#9bbfff" stroke-linejoin="round">
+  <defs>
+    <g id="bay">
+      <path d="M2 0v120m116-120v120M0 112h120M0 117h120" stroke-width="2.5"/>
+      <path d="m3 9 114 99M117 9 3 108M2 26h116" stroke-width="1.5"/>
+      <path d="M0 7h6m109 0h5M0 108h6m109 0h5" stroke-width="4"/>
+    </g>
+  </defs>
+  <use href="#bay" x="0" y="0"/>
+  <use href="#bay" x="0" y="120"/><use href="#bay" x="120" y="120"/>
+  <use href="#bay" x="0" y="240"/><use href="#bay" x="120" y="240"/>
+  <use href="#bay" x="0" y="360"/><use href="#bay" x="120" y="360"/><use href="#bay" x="240" y="360"/>
+</svg>
