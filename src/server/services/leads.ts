@@ -429,4 +429,27 @@ export async function pipeline(deps: Deps, org: Org): Promise<Pipeline> {
   };
 }
 
+/** Agents record decisions on a lead; they can exclude only what the server already says is not actionable. */
+export async function agentNote(
+  deps: Deps,
+  org: Org,
+  leadId: string,
+  req: { role: "planner" | "builder" | "reviewer" | "security"; decision: "keep" | "exclude" | "note"; note: string; bandRoomId?: string },
+) {
+  const lead = await requireLead(deps, org, leadId);
+  if (req.decision === "exclude" && lead.qualification.status === "actionable") {
+    throw new ContractError("conflict", `Server qualification says ${lead.contractorName} is actionable (${lead.qualification.label}); exclusion refused`);
+  }
+  if (req.decision === "keep" && lead.qualification.status !== "actionable") {
+    throw new ContractError("conflict", `Cannot keep ${lead.contractorName}: ${lead.qualification.label}`);
+  }
+  await logActivity(deps, deps.db, org, {
+    actor: AGENTS[req.role],
+    type: req.role === "security" ? "security_check" : req.decision === "exclude" ? "lead_excluded" : "review_check",
+    leadId,
+    summary: `[Band${req.bandRoomId ? ` room ${req.bandRoomId.slice(0, 8)}` : ""}] ${req.decision === "note" ? "" : `${req.decision}: `}${req.note}`,
+  });
+  return leadDetail(deps, org, leadId);
+}
+
 export { AGENTS };

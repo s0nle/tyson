@@ -5,6 +5,7 @@ import { ApiErrorBody, ContractError } from "./errors";
 import {
   Analytics,
   AnalyticsQuery,
+  AgentNoteRequest,
   EvaluateLeadRequest,
   GraphView,
   LeadDetail,
@@ -76,6 +77,7 @@ export const endpoints = {
     response: LeadDetail,
   }),
   moveLead: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/stage", body: MoveLeadRequest, response: LeadDetail }),
+  agentNote: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/agent-notes", body: AgentNoteRequest, response: LeadDetail }),
   draftMessage: endpoint({ method: "POST", path: "/api/v1/leads/:leadId/drafts", body: DraftRequest, response: Message }),
 
   reviseMessage: endpoint({ method: "POST", path: "/api/v1/messages/:messageId/revise", body: ReviseMessageRequest, response: Message }),

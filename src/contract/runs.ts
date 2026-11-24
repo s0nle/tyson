@@ -35,6 +35,8 @@ export const Run = z.object({
     disqualified: z.int(),
   }),
   error: z.string().nullable(),
+  /** Band room coordinating this run (multi-agent handoffs), if any. */
+  bandRoomId: z.string().nullable().default(null),
 });
 export type Run = z.infer<typeof Run>;
 
@@ -42,6 +44,8 @@ export const StartRunRequest = z.object({
   mode: z.enum(["seed", "live"]).default("live"),
   /** Replay clock, e.g. "2026-11-24T09:00:00-08:00". Omit for now. */
   asOf: Timestamp.optional(),
+  /** Band room id when the run is started by the Planner agent from a Band room. */
+  bandRoomId: z.string().max(100).optional(),
 });
 export type StartRunRequest = z.input<typeof StartRunRequest>;
 

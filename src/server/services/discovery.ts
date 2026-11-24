@@ -36,6 +36,7 @@ export async function startRun(deps: Deps, org: Org, req: StartRunRequest) {
     leadIds: [],
     counts: { sources: 0, candidates: 0, actionable: 0, closed: 0, review: 0, disqualified: 0 },
     error: null,
+    bandRoomId: req.bandRoomId ?? null,
   });
   await putDoc(deps.db, org.id, "run", run.id, run, iso(deps));
   await logActivity(deps, deps.db, org, { actor: AGENTS.planner, type: "run_started", runId: run.id, summary: `Discovery run started (${run.mode}, as of ${formatInZone(run.asOf)})` });

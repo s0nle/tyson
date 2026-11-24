@@ -4,7 +4,7 @@ import { analytics } from "./services/analytics";
 import { ledger, meFor, resetOrg, totals } from "./services/base";
 import { getRun, listCompetitors, listRuns, startRun } from "./services/discovery";
 import { wholeGraph } from "./services/graph";
-import { allLeads, evaluateLead, leadDetail, moveLead, pipeline, toSummary, verifyContact } from "./services/leads";
+import { agentNote, allLeads, evaluateLead, leadDetail, moveLead, pipeline, toSummary, verifyContact } from "./services/leads";
 import { decideMessage, draftMessage, recordReply, reviseMessage, sendMessage } from "./services/messages";
 import { approveProfile, getProfile, inferProfile, updateProfile } from "./services/profile";
 
@@ -63,6 +63,9 @@ export const handlers: Handlers = {
   },
   async moveLead({ deps, org, params, body }) {
     return moveLead(deps, await org(), p(params, "leadId"), body);
+  },
+  async agentNote({ deps, org, params, body }) {
+    return agentNote(deps, await org(), p(params, "leadId"), body);
   },
   async draftMessage({ deps, org, params, body }) {
     return draftMessage(deps, await org(), p(params, "leadId"), body);

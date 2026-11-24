@@ -259,3 +259,15 @@ export const Analytics = z.object({
 export type Analytics = z.infer<typeof Analytics>;
 
 export const AnalyticsQuery = z.object({ segment: z.string().optional(), tier: z.enum(["A", "B", "C"]).optional() });
+
+/**
+ * An agent's recorded decision on a lead (Band room handoffs). Free. Guardrail: an agent can never make a lead
+ * actionable — "exclude" is accepted only when the server's own qualification agrees the lead is not actionable.
+ */
+export const AgentNoteRequest = z.object({
+  role: z.enum(["planner", "builder", "reviewer", "security"]),
+  decision: z.enum(["keep", "exclude", "note"]),
+  note: z.string().min(1).max(1000),
+  bandRoomId: z.string().max(100).optional(),
+});
+export type AgentNoteRequest = z.input<typeof AgentNoteRequest>;
