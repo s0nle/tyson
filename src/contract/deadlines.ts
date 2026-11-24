@@ -10,16 +10,22 @@ export type DeadlineRule =
  * Resolve a contractor/form deadline rule into an instant plus a human-readable derivation.
  * "24 hours prior to bid" is a duration, so it is computed on instants and rendered in the project zone.
  */
+/** True when `s` parses to a real instant (LLM output like "TBD" or "Dec 2nd 2PM" does not). */
+export function isInstant(s: string | null | undefined): s is string {
+  return typeof s === "string" && s.length >= 10 && Number.isFinite(Date.parse(s));
+}
+
 export function resolveDeadline(
   rule: DeadlineRule,
   bidOpening: string | null,
   tz = DEFAULT_TZ,
 ): { at: string | null; derivation: string } {
   if (rule.kind === "absolute") {
+    if (!isInstant(rule.at)) return { at: null, derivation: `Stated date "${rule.at}" is not a usable date` };
     return { at: toZonedIso(rule.at, tz), derivation: `Stated in notice: ${formatInZone(rule.at, tz)}` };
   }
   if (rule.kind === "hours_before_bid") {
-    if (!bidOpening) return { at: null, derivation: `${rule.hours} h before bid, but bid opening is unknown` };
+    if (!bidOpening || !isInstant(bidOpening)) return { at: null, derivation: `${rule.hours} h before bid, but bid opening is unknown` };
     const at = new Date(new Date(bidOpening).getTime() - rule.hours * 3_600_000);
     return {
       at: toZonedIso(at, tz),

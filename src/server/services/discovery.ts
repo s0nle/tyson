@@ -3,6 +3,7 @@ import {
   Competitor,
   ContractError,
   formatInZone,
+  isInstant,
   matchScopes,
   Project,
   Run,
@@ -318,9 +319,19 @@ async function liveDiscovery(
       await step(AGENTS.builder, "extract", `Skipped (not a supplier solicitation): ${p.title.slice(0, 90)}`, p.url);
       continue;
     }
+    // LLM dates are untrusted: anything that isn't a real instant becomes "unknown" (→ needs review)
+    ex.ownerBidOpening = isInstant(ex.ownerBidOpening) ? ex.ownerBidOpening : null;
+    ex.deadlines = ex.deadlines.map((d) =>
+      d.rule === "absolute" && !isInstant(d.at) ? { ...d, rule: "unknown" as const, at: null } : d,
+    );
     const verified = !!ex.scopeExcerpt && p.content.toLowerCase().includes(ex.scopeExcerpt.toLowerCase().slice(0, 60));
-    const src = await upsertSource(deps, org, { key: p.url, url: p.url, title: p.title, kind: "web_page", text: p.content.slice(0, 20000), retrievedAt: iso(deps), stampedDate: null, origin: "live" });
-    out.push(await saveNotice(deps, org, src, ex, "live", verified, owner));
+    try {
+      const src = await upsertSource(deps, org, { key: p.url, url: p.url, title: p.title, kind: "web_page", text: p.content.slice(0, 20000), retrievedAt: iso(deps), stampedDate: null, origin: "live" });
+      out.push(await saveNotice(deps, org, src, ex, "live", verified, owner));
+    } catch (e) {
+      await step(AGENTS.builder, "error", `Skipped ${ex.bidder}: could not store this notice (${String(e instanceof Error ? e.message : e).slice(0, 120)})`, p.url);
+      continue;
+    }
     await step(
       AGENTS.builder,
       "extract",
