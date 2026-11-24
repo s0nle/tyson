@@ -11,7 +11,7 @@ export function getServer() {
   server ??= (async () => {
     const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     if (!url && process.env.VERCEL) throw new Error("DATABASE_URL is not set on this deployment");
-    const database = await openDatabase(url ? { url } : { dataDir: process.env.PGLITE_DIR ?? ".pglite" });
+    const database = await openDatabase(url ? { url } : { dataDir: process.env.PGLITE_DIR ?? `${(await import("node:os")).tmpdir()}/cse-pglite` });
     await database.migrate();
     const deps: Deps = {
       db: database.db,

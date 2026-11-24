@@ -31,6 +31,7 @@ export function openAiProvider(apiKey: string, model: string): AiProvider {
   async function structured<S extends z.ZodType>(name: string, schema: S, system: string, user: string): Promise<z.output<S>> {
     const res = await client.chat.completions.create({
       model,
+      ...(/^(gpt-5|o\d)/.test(model) ? { reasoning_effort: (process.env.OPENAI_REASONING as "low" | "minimal" | "medium") || "low" } : {}),
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

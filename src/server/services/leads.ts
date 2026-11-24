@@ -61,8 +61,16 @@ export function citationFor(src: SourceRec, excerpt: string): Citation {
 function excerptAround(text: string, needle: string): string {
   const i = text.toLowerCase().indexOf(needle.toLowerCase());
   if (i < 0) return needle;
-  const line = text.slice(text.lastIndexOf("\n", i) + 1, (text.indexOf("\n", i) + 1 || text.length + 1) - 1);
-  return line.length <= 400 ? line : text.slice(Math.max(0, i - 120), i + needle.length + 120);
+  const start = text.lastIndexOf("\n", i) + 1;
+  const end = text.indexOf("\n", i) === -1 ? text.length : text.indexOf("\n", i);
+  const line = text.slice(start, end);
+  if (line.length <= 220) return line;
+  // snap a ±90 char window to word boundaries
+  let a = Math.max(start, i - 90);
+  let b = Math.min(end, i + needle.length + 90);
+  while (a > start && !/\s/.test(text[a - 1] ?? "")) a--;
+  while (b < end && !/\s/.test(text[b] ?? "")) b++;
+  return `${a > start ? "…" : ""}${text.slice(a, b).trim()}${b < end ? "…" : ""}`;
 }
 
 function companyTier(estimate: string | null): LeadSummary["companyTier"] {

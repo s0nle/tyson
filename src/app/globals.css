@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f4f6f5;
+  --color-sheet: #ffffff;
+  --color-ink: #1b2430;
+  --color-ink-2: #4a5563;
+  --color-ink-3: #7b8591;
+  --color-rule: #d7dde2;
+  --color-rule-2: #e8ecef;
+  --color-spec: #1f4e8c;
+  --color-spec-2: #e6eef8;
+  --color-redline: #c8321e;
+  --color-redline-2: #fbeae7;
+  --color-open: #23704a;
+  --color-open-2: #e4f3ea;
+  --color-review: #9a6a00;
+  --color-review-2: #fbf1d9;
+  --color-agent: #5b3f9e;
+  --color-agent-2: #efeaf9;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+body {
+  font-feature-settings: "tnum" 1;
+}
+.condensed {
+  font-stretch: 78%;
+}
+:focus-visible {
+  outline: 2px solid var(--color-spec);
+  outline-offset: 2px;
+}
+
+.tone-open { color: var(--color-open); background: var(--color-open-2); }
+.tone-closed { color: var(--color-redline); background: var(--color-redline-2); }
+.tone-review { color: var(--color-review); background: var(--color-review-2); }
+.tone-muted { color: var(--color-ink-3); background: var(--color-rule-2); }
+
+/* The deadline stamp: the one loud element. */
+.stamp {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px 9px;
+  border: 3px double currentColor;
+  border-radius: 6px;
+  transform: rotate(-2.5deg);
+  font-stretch: 78%;
+  font-weight: 800;
+  line-height: 1.05;
+  mix-blend-mode: multiply;
+}
+.stamp.open { color: var(--color-open); }
+.stamp.closed { color: var(--color-redline); }
+.stamp.review { color: var(--color-review); }
+.stamp small { font-weight: 600; font-size: 12px; letter-spacing: 0.01em; }
+
+table.datagrid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.datagrid th { text-align: left; font-weight: 600; color: var(--color-ink-2); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--color-rule); background: var(--color-sheet); position: sticky; top: 0; }
+table.datagrid td { padding: 9px 10px; border-bottom: 1px solid var(--color-rule-2); vertical-align: top; }
+table.datagrid tr:hover td { background: #f9fbfc; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid var(--color-rule); background: var(--color-sheet); color: var(--color-ink); cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--color-ink-3); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--color-spec); border-color: var(--color-spec); color: white; }
+.btn-primary:hover:not(:disabled) { background: #183f73; }
+.btn-danger { color: var(--color-redline); border-color: #ecc3bc; }
+.field { width: 100%; border: 1px solid var(--color-rule); border-radius: 6px; padding: 8px 10px; font-size: 14px; background: var(--color-sheet); }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.panel { background: var(--color-sheet); border: 1px solid var(--color-rule); border-radius: 8px; }
