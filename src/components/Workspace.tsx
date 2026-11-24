@@ -137,7 +137,7 @@ export function Workspace() {
         <a
           href="#main-content"
           className="brand-link"
-          aria-label="Contractor Sales Engine"
+          aria-label="Tyson, your personal sales agent"
         >
           <Brand />
         </a>

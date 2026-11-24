@@ -132,7 +132,7 @@ export function Brand() {
         </svg>
       </span>
       <span>
-        Contractor<span className="brand-sub">SALES ENGINE</span>
+        Tyson<span className="brand-sub">Your personal sales agent</span>
       </span>
     </div>
   );

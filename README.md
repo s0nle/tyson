@@ -1,4 +1,4 @@
-# Contractor Sales Engine
+# Tyson — your personal sales agent
 
 A supplier describes what it sells. The app finds contractors **currently collecting supplier quotes** for that work,
 cites the public notice behind every claim, applies **that contractor's** deadline (not the utility's bid date), and takes a

@@ -1,4 +1,4 @@
-# System design — Contractor Sales Engine
+# System design — Tyson, your personal sales agent
 
 ## 1. Flow
 

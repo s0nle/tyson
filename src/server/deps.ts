@@ -46,7 +46,7 @@ export function pickProviders(env: NodeJS.ProcessEnv = process.env) {
   const enrich = env.ENRICH !== "fake" && env.HUNTER_API_KEY ? hunterEnrich(env.HUNTER_API_KEY) : (warn("Hunter"), makeFakeEnrich());
   const mail =
     env.MAIL !== "fake" && env.RESEND_API_KEY
-      ? resendMail(env.RESEND_API_KEY, env.RESEND_FROM || "Contractor Sales Engine <onboarding@resend.dev>")
+      ? resendMail(env.RESEND_API_KEY, env.RESEND_FROM || "Tyson Sales Agent <onboarding@resend.dev>")
       : (warn("Resend"), makeFakeMail());
   const billing =
     env.BILLING !== "fake" && env.FLEXPRICE_API_KEY
