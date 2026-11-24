@@ -30,7 +30,21 @@ export async function openDatabase(opts: { url?: string; dataDir?: string } = {}
     // biome-ignore lint/suspicious/noExplicitAny: postgres.js Sql vs TransactionSql share `unsafe`
     type AnySql = { unsafe: (t: string, p: never[]) => Promise<unknown>; begin?: (fn: (t: any) => Promise<unknown>) => Promise<unknown> };
     const wrap = (s: AnySql): Db => ({
-      query: async <T>(text: string, params: unknown[] = []) => (await s.unsafe(text, params as never[])) as unknown as T[],
+      query: async <T>(text: string, params: unknown[] = []) => {
+        const rows = (await s.unsafe(text, params as never[])) as unknown as Record<string, unknown>[];
+        // tolerate rows written as JSON string scalars by an earlier driver version
+        for (const r of rows) {
+          for (const k of ["data", "result", "props"]) {
+            const v = r[k];
+            if (typeof v === "string" && (v.startsWith("{") || v.startsWith("["))) {
+              try {
+                r[k] = JSON.parse(v);
+              } catch {}
+            }
+          }
+        }
+        return rows as unknown as T[];
+      },
       tx: async <T>(fn: (db: Db) => Promise<T>) => {
         if (s.begin) return (await s.begin((t: AnySql) => fn(wrap(t)))) as T;
         return fn(wrap(s));
@@ -69,7 +83,7 @@ export async function openDatabase(opts: { url?: string; dataDir?: string } = {}
 
 export async function putDoc(db: Db, orgId: string, kind: string, id: string, data: unknown, now: string) {
   await db.query(
-    `insert into docs (org_id, kind, id, data, updated_at) values ($1, $2, $3, $4::jsonb, $5)
+    `insert into docs (org_id, kind, id, data, updated_at) values ($1, $2, $3, $4::text::jsonb, $5)
      on conflict (org_id, kind, id) do update set data = excluded.data, updated_at = excluded.updated_at`,
     [orgId, kind, id, JSON.stringify(data), now],
   );

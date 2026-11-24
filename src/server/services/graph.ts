@@ -7,7 +7,7 @@ type Label = GraphView["nodes"][number]["label"];
 /** Native-graph-style store on Postgres: labeled nodes + typed directional edges. */
 export async function upsertNode(db: Db, org: Org, id: string, label: Label, name: string, props: Record<string, unknown> = {}) {
   await db.query(
-    `insert into nodes (org_id, id, label, name, props) values ($1, $2, $3, $4, $5::jsonb)
+    `insert into nodes (org_id, id, label, name, props) values ($1, $2, $3, $4, $5::text::jsonb)
      on conflict (org_id, id) do update set label = excluded.label, name = excluded.name, props = excluded.props`,
     [org.id, id, label, name, JSON.stringify(props)],
   );
@@ -15,7 +15,7 @@ export async function upsertNode(db: Db, org: Org, id: string, label: Label, nam
 
 export async function upsertEdge(db: Db, org: Org, src: string, rel: string, dst: string, props: Record<string, unknown> = {}) {
   await db.query(
-    `insert into edges (org_id, src, rel, dst, props) values ($1, $2, $3, $4, $5::jsonb)
+    `insert into edges (org_id, src, rel, dst, props) values ($1, $2, $3, $4, $5::text::jsonb)
      on conflict (org_id, src, rel, dst) do update set props = excluded.props`,
     [org.id, src, rel, dst, JSON.stringify(props)],
   );

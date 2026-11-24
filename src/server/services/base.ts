@@ -73,7 +73,7 @@ export async function logActivity(
     variant: a.variant ?? null,
     billingEventId: a.billingEventId ?? null,
   });
-  await db.query("insert into activity (id, org_id, lead_id, at, data) values ($1, $2, $3, $4, $5::jsonb)", [
+  await db.query("insert into activity (id, org_id, lead_id, at, data) values ($1, $2, $3, $4, $5::text::jsonb)", [
     row.id,
     org.id,
     row.leadId,
@@ -106,7 +106,7 @@ export function totals(entries: LedgerEntry[]) {
 
 async function writeLedger(db: Db, org: Org, e: LedgerEntry) {
   await db.query(
-    `insert into ledger (id, org_id, at, data) values ($1, $2, $3, $4::jsonb)
+    `insert into ledger (id, org_id, at, data) values ($1, $2, $3, $4::text::jsonb)
      on conflict (id) do update set data = excluded.data`,
     [e.id, org.id, new Date(e.at).toISOString(), JSON.stringify(LedgerEntry.parse(e))],
   );
@@ -215,7 +215,7 @@ export async function idempotent<T>(deps: Deps, org: Org, key: string, fn: () =>
   if (hit[0]) return hit[0].result;
   const result = await fn();
   await deps.db.query(
-    "insert into idempotency (org_id, key, result) values ($1, $2, $3::jsonb) on conflict do nothing",
+    "insert into idempotency (org_id, key, result) values ($1, $2, $3::text::jsonb) on conflict do nothing",
     [org.id, key, JSON.stringify(result)],
   );
   return result;
